@@ -1,0 +1,1 @@
+export { RecentlyClosedList } from "./components/recently-closed-list"

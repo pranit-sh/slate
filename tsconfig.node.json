@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "forge.config.ts",
+    "vite.*.config.mts",
+    "src/main/**/*.ts",
+    "src/preload/**/*.ts",
+    "src/shared/**/*.ts"
+  ]
+}
