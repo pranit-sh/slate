@@ -1,4 +1,5 @@
 import { join } from "node:path"
+import { release } from "node:os"
 import { pathToFileURL } from "node:url"
 import { app, BrowserWindow, ipcMain, session, type DownloadItem, type WebContents } from "electron"
 import { IPC_CHANNELS, type NextUpRecommendation } from "../shared/electron-api"
@@ -53,6 +54,11 @@ import {
   EncryptedAiModelRepository,
   registerAiModelIpc,
 } from "./features/ai-models"
+import {
+  BugReportService,
+  ElectronExternalUrlOpener,
+  registerBugReportIpc,
+} from "./features/bug-reporting"
 import { testAiConnection } from "./ai-client"
 import { runAiAgent } from "./ai-agent"
 import type { AiChatMessage, AiMessageEvent } from "../shared/electron-api"
@@ -198,6 +204,7 @@ app.whenReady().then(async () => {
   searchSuggestionService = new SearchSuggestionService(
     browserSettings,
     new HttpSearchSuggestionProvider(),
+    visitHistory,
   )
   aiModels = new AiModelService(
     new EncryptedAiModelRepository(join(app.getPath("userData"), "ai-models.json")),
@@ -247,6 +254,12 @@ app.whenReady().then(async () => {
 
   ipcMain.on(IPC_CHANNELS.newTab, (event) => getTabs(event)?.createTab())
   ipcMain.on(IPC_CHANNELS.newGhostTab, (event) => getTabs(event)?.createGhostTab())
+  ipcMain.on(IPC_CHANNELS.toggleActiveTabDevTools, (event) => {
+    getTabs(event)?.toggleActiveTabDevTools()
+  })
+  ipcMain.on(IPC_CHANNELS.toggleAssistantSidebar, (event) => {
+    getTabs(event)?.toggleAssistantSidebar()
+  })
   ipcMain.on(IPC_CHANNELS.openUrl, (event, value: unknown) => {
     if (typeof value !== "string" || value.length > 2_000) return
     try {
@@ -279,6 +292,7 @@ app.whenReady().then(async () => {
   registerSavedSitesIpc({
     service: savedSites,
     openPage: (event) => getTabs(event)?.openSaved(),
+    onChanged: (event, feedback) => getTabs(event)?.sendBookmarkFeedback(feedback),
   })
   registerPinnedSitesIpc({
     service: pinnedSitesService,
@@ -304,8 +318,23 @@ app.whenReady().then(async () => {
     openPage: (event) => getTabs(event)?.openSettings(),
   })
   registerAiModelIpc(aiModels)
-  ipcMain.on(IPC_CHANNELS.startAiMessage, (event, requestId: string, messages: AiChatMessage[]) => {
+  registerBugReportIpc(new BugReportService({
+    appVersion: app.getVersion(),
+    operatingSystem: `${process.platform} ${release()}`,
+    externalUrlOpener: new ElectronExternalUrlOpener(),
+  }))
+  ipcMain.on(IPC_CHANNELS.startAiMessage, (
+    event,
+    requestId: string,
+    messages: AiChatMessage[],
+    contextTabIds: string[],
+  ) => {
     if (typeof requestId !== "string" || requestId.length > 100) return
+    if (
+      !Array.isArray(contextTabIds)
+      || contextTabIds.length > 100
+      || contextTabIds.some((tabId) => typeof tabId !== "string" || tabId.length > 100)
+    ) return
     const requestKey = `${event.sender.id}:${requestId}`
     aiRequests.get(requestKey)?.abort()
     const controller = new AbortController()
@@ -329,6 +358,7 @@ app.whenReady().then(async () => {
           credentials,
           messages,
           tabs,
+          contextTabIds,
           {
             onActivity: (activity) => {
               if (!controller.signal.aborted) {
@@ -368,7 +398,6 @@ app.whenReady().then(async () => {
   ipcMain.on(IPC_CHANNELS.activateTab, (event, tabId: string) => {
     getTabs(event)?.activateTab(tabId)
   })
-  ipcMain.on(IPC_CHANNELS.openDevTools, (event) => getTabs(event)?.openDevTools())
   ipcMain.on(IPC_CHANNELS.closeTab, (event, tabId: string) => {
     getTabs(event)?.closeTab(tabId)
   })

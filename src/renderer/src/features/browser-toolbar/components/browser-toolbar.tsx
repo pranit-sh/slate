@@ -1,14 +1,16 @@
 import { type MouseEvent } from "react"
-import { PanelRightOpen } from "lucide-react"
+import { Ghost, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useSidebar } from "@/components/ui/sidebar"
+import { ButtonGroup } from "@/components/ui/button-group"
+import { DownloadActivity } from "@/features/downloads"
 import { useBrowserToolbar } from "../hooks/use-browser-toolbar"
 import { AddressTrigger } from "./address-trigger"
 import { NavigationControls } from "./navigation-controls"
 
 export function BrowserToolbar() {
   const browser = useBrowserToolbar()
-  const { state: sidebarState, toggleSidebar } = useSidebar()
+  const commandKey = window.electron.platform === "darwin" ? "⌘" : "Ctrl+"
+  const shiftKey = window.electron.platform === "darwin" ? "⇧" : "Shift+"
 
   function handleToolbarMouseDown(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement
@@ -36,24 +38,37 @@ export function BrowserToolbar() {
           activeTab={browser.activeTab}
           address={browser.address}
           addressButtonRef={browser.addressButtonRef}
+          bookmarkFeedback={browser.bookmarkFeedback}
           isGhostTab={browser.isGhostTab}
           isLoading={browser.isLoading}
           isOmniboxOpen={browser.isOmniboxOpen}
           closeOmnibox={browser.closeOmnibox}
-          createTab={browser.createTab}
           openOmnibox={browser.openOmnibox}
         />
-        <div className="no-drag flex items-center justify-end self-stretch">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={toggleSidebar}
-            aria-label="Toggle assistant sidebar"
-            aria-expanded={sidebarState === "expanded"}
-            title="Toggle assistant sidebar"
-          >
-            <PanelRightOpen />
-          </Button>
+        <div className="no-drag flex items-center justify-between gap-1 self-stretch">
+          <ButtonGroup className="rounded-lg">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="bg-transparent shadow-none"
+              onClick={browser.createTab}
+              aria-label="New tab"
+              title={`New tab (${commandKey}T)`}
+            >
+              <Plus />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="bg-transparent shadow-none"
+              onClick={browser.createGhostTab}
+              aria-label="New Ghost Tab"
+              title={`New Ghost Tab (${commandKey}${shiftKey}T)`}
+            >
+              <Ghost />
+            </Button>
+          </ButtonGroup>
+          <DownloadActivity />
         </div>
       </header>
     </div>

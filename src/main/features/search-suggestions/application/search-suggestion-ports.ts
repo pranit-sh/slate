@@ -1,4 +1,4 @@
-import type { BrowserSettings, SearchEngine } from "../../../../shared/electron-api"
+import type { BrowserSettings, SearchEngine, Visit } from "../../../../shared/electron-api"
 
 export interface BrowserSettingsReader {
   get(): Promise<BrowserSettings>
@@ -6,4 +6,8 @@ export interface BrowserSettingsReader {
 
 export interface SearchSuggestionProvider {
   getSuggestions(query: string, searchEngine: SearchEngine): Promise<string[]>
+}
+
+export interface VisitHistoryReader {
+  list(): Promise<Visit[]>
 }

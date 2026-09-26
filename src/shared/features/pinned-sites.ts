@@ -1,1 +1,0 @@
-export const MAX_PINNED_SITES = 5

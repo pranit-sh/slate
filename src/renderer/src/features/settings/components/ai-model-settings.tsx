@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react"
-import { Bot, CircleAlert, Plus, RefreshCw, X } from "lucide-react"
+import { CircleAlert, CircleCheck, Plus, RefreshCw, X } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,13 +11,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { AiConnectionStatus, AiModel, AiProvider, AiSettings } from "../../../../../shared/electron-api"
 
 const EMPTY_AI_SETTINGS: AiSettings = { activeModelId: null, models: [] }
@@ -70,6 +68,10 @@ const EMPTY_MODEL_FORM: ModelForm = {
 
 type ConnectionState = AiConnectionStatus | { state: "checking" }
 
+function getConnectionErrorMessage(status: ConnectionState | undefined): string | undefined {
+  return status?.state === "error" ? status.message : undefined
+}
+
 function ProviderOption({ provider }: { provider: (typeof PROVIDER_OPTIONS)[number] }) {
   return (
     <span className="flex items-center gap-2">
@@ -79,22 +81,45 @@ function ProviderOption({ provider }: { provider: (typeof PROVIDER_OPTIONS)[numb
   )
 }
 
-function ConnectionStatus({ status }: { status: ConnectionState | undefined }) {
-  if (!status) return null
-  if (status.state === "checking") return <Badge variant="outline">Checking…</Badge>
-  if (status.state === "connected") return <Badge variant="secondary">Connected</Badge>
+interface ConnectionStatusButtonProps {
+  modelName: string
+  status: ConnectionState | undefined
+  onCheck(): void
+}
+
+function ConnectionStatusButton({ modelName, status, onCheck }: ConnectionStatusButtonProps) {
+  const isChecking = status?.state === "checking"
+  const statusLabel = !status
+    ? "Connection status unavailable"
+    : status.state === "checking"
+      ? "Checking connection"
+      : status.state === "connected"
+        ? "Connected"
+        : status.message
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge variant="destructive" className="cursor-default gap-1">
-            <CircleAlert />
-            Error
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">{status.message}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      type="button"
+      size="icon-sm"
+      variant="ghost"
+      className={status?.state === "error" ? "text-destructive hover:text-destructive" : "text-muted-foreground"}
+      onClick={onCheck}
+      disabled={isChecking}
+      aria-label={`${statusLabel}. Test connection for ${modelName}`}
+    >
+      {isChecking ? (
+        <RefreshCw className="animate-spin" />
+      ) : (
+        <>
+          {status?.state === "connected" ? (
+            <CircleCheck className="group-hover/button:hidden group-focus-visible/button:hidden" />
+          ) : (
+            <CircleAlert className="group-hover/button:hidden group-focus-visible/button:hidden" />
+          )}
+          <RefreshCw className="hidden group-hover/button:block group-focus-visible/button:block" />
+        </>
+      )}
+    </Button>
   )
 }
 
@@ -173,10 +198,7 @@ export function AiModelSettings() {
         </div>
         <div className="overflow-hidden rounded-lg border">
           {aiSettings.models.length === 0 ? (
-            <div className="flex min-h-28 items-center gap-3 px-4 py-5">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Bot className="size-4" />
-              </div>
+            <div className="flex min-h-16 items-center px-4 py-3">
               <div className="min-w-0">
                 <div className="text-sm">No AI models configured</div>
                 <div className="text-xs text-muted-foreground">
@@ -202,26 +224,26 @@ export function AiModelSettings() {
                     />
                     <span className="min-w-0">
                       <span className="block truncate text-sm">{model.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {PROVIDER_OPTIONS.find((provider) => provider.value === model.provider)?.label}
-                        {" · "}{model.model}
+                      <span
+                        className={`block truncate text-xs ${
+                          connectionStatuses[model.id]?.state === "error"
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                        }`}
+                        role={connectionStatuses[model.id]?.state === "error" ? "alert" : undefined}
+                      >
+                        {getConnectionErrorMessage(connectionStatuses[model.id]) ?? <>
+                          {PROVIDER_OPTIONS.find((provider) => provider.value === model.provider)?.label}
+                          {" · "}{model.model}
+                        </>}
                       </span>
                     </span>
                   </button>
-                  <ConnectionStatus status={connectionStatuses[model.id]} />
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => checkConnection(model.id)}
-                    disabled={connectionStatuses[model.id]?.state === "checking"}
-                    aria-label={`Test connection for ${model.name}`}
-                    title="Test connection"
-                  >
-                    <RefreshCw
-                      className={connectionStatuses[model.id]?.state === "checking" ? "animate-spin" : undefined}
-                    />
-                  </Button>
+                  <ConnectionStatusButton
+                    modelName={model.name}
+                    status={connectionStatuses[model.id]}
+                    onCheck={() => checkConnection(model.id)}
+                  />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -236,14 +258,17 @@ export function AiModelSettings() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {model.name}?</AlertDialogTitle>
+                        <AlertDialogTitle className="font-normal">
+                          Delete {model.name}?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                           This removes the model and its stored API key from this device.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="font-normal">Cancel</AlertDialogCancel>
                         <AlertDialogAction
+                          className="font-normal"
                           onClick={() => {
                             void window.electron.browser.deleteAiModel(model.id).then(setAiSettings)
                           }}
@@ -267,7 +292,9 @@ export function AiModelSettings() {
         <DialogContent>
           <form onSubmit={(event) => void saveModel(event)}>
             <DialogHeader>
-              <DialogTitle>{modelForm.id ? "Edit AI model" : "Add AI model"}</DialogTitle>
+              <DialogTitle className="font-normal">
+                {modelForm.id ? "Edit AI model" : "Add AI model"}
+              </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-5">
               <label className="grid gap-1.5 text-sm" htmlFor="model-name">
@@ -342,8 +369,15 @@ export function AiModelSettings() {
               {modelError && <p className="text-sm text-destructive" role="alert">{modelError}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsModelDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={isSavingModel}>
+              <Button
+                type="button"
+                variant="outline"
+                className="font-normal"
+                onClick={() => setIsModelDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="font-normal" disabled={isSavingModel}>
                 {isSavingModel ? "Saving…" : "Save model"}
               </Button>
             </DialogFooter>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import type { BrowserTabsState } from "../../../../../shared/electron-api"
+import type { BrowserTabsState, SearchSuggestion } from "../../../../../shared/electron-api"
 import { getBrowserCommands } from "../commands/browser-command-registry"
 
 const INITIAL_TABS_STATE: BrowserTabsState = {
@@ -12,9 +12,10 @@ const INITIAL_TABS_STATE: BrowserTabsState = {
 export function useOmnibox() {
   const [tabsState, setTabsState] = useState(INITIAL_TABS_STATE)
   const [query, setQuery] = useState("")
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [isQueryEdited, setIsQueryEdited] = useState(false)
   const [selectedValue, setSelectedValue] = useState("")
+  const [openSequence, setOpenSequence] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -26,6 +27,7 @@ export function useOmnibox() {
       .toLocaleLowerCase()
       .includes(commandQuery)
   })
+  const firstCommandValue = commands[0]?.label ?? ""
   const tabs = tabsState.tabs.filter((tab) => {
     if (isCommandMode) return false
     if (!isQueryEdited || !normalizedQuery) return true
@@ -39,6 +41,7 @@ export function useOmnibox() {
       setIsQueryEdited(false)
       setSelectedValue("")
       setSuggestions([])
+      setOpenSequence((current) => current + 1)
       requestAnimationFrame(() => {
         const input = inputRef.current
         if (!input) return
@@ -80,6 +83,10 @@ export function useOmnibox() {
   useEffect(() => {
     window.electron.browser.setTabPickerCommandCount(isCommandMode ? commands.length : 0)
   }, [commands.length, isCommandMode])
+
+  useEffect(() => {
+    if (isCommandMode) setSelectedValue(firstCommandValue)
+  }, [commandQuery, firstCommandValue, isCommandMode, openSequence])
 
   function updateQuery(value: string): void {
     setQuery(value)

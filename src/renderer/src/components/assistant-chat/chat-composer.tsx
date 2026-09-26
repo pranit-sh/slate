@@ -1,8 +1,16 @@
 import { type KeyboardEvent, useRef, useState } from "react"
 import { BorderBeam } from "border-beam"
-import { ArrowUpIcon, ChevronDown, Square } from "lucide-react"
+import { ArrowUpIcon, Check, Plus, Square, X } from "lucide-react"
 
 import { Favicon } from "@/components/favicon"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +24,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { AiModel, BrowserTab } from "../../../../shared/electron-api"
 import { CHAT_PLACEHOLDERS } from "./content"
 
@@ -52,11 +61,15 @@ function ModelOption({ model }: { model: AiModel }) {
 interface ChatComposerProps {
   models: AiModel[]
   activeModelId: string | null
-  contextTab: BrowserTab | null
+  tabs: BrowserTab[]
+  activeTab: BrowserTab | null
+  contextTabs: BrowserTab[]
   isResponding: boolean
   onSend: (content: string) => void
   onStop: () => void
   onSelectModel: (modelId: string) => void
+  onAddContextTab: (tab: BrowserTab) => void
+  onRemoveContextTab: (tabId: string) => void
 }
 
 /**
@@ -67,13 +80,18 @@ interface ChatComposerProps {
 export function ChatComposer({
   models,
   activeModelId,
-  contextTab,
+  tabs,
+  activeTab,
+  contextTabs,
   isResponding,
   onSend,
   onStop,
   onSelectModel,
+  onAddContextTab,
+  onRemoveContextTab,
 }: ChatComposerProps) {
   const [draft, setDraft] = useState("")
+  const [isContextPickerOpen, setIsContextPickerOpen] = useState(false)
   const [placeholder] = useState(pickPlaceholder)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const hasModel = models.length > 0
@@ -98,18 +116,39 @@ export function ChatComposer({
     <div className="w-full shrink-0 bg-transparent px-3 pb-3 pt-2">
       <BorderBeam active={isResponding} className="w-full" theme="auto">
         <InputGroup className="h-auto flex-col items-stretch rounded-lg border-foreground/20 bg-background shadow-none">
-        {contextTab && (
+        {(activeTab || contextTabs.length > 0) && (
           <InputGroupAddon
             align="block-start"
             className="min-w-0 justify-start gap-1.5 overflow-x-auto border-b px-2 py-1.5 [.border-b]:pb-1.5"
           >
-            <span
-              className="flex h-6 min-w-0 max-w-56 shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted/50 px-1.5 text-[11px] font-normal text-foreground"
-              aria-label={`Page context: ${contextTab.title || contextTab.url}`}
-            >
-              <Favicon src={contextTab.faviconUrl} className="size-3.5 shrink-0" />
-              <span className="truncate">{contextTab.title || contextTab.url}</span>
-            </span>
+            {activeTab && (
+              <span
+                className="flex h-6 min-w-0 max-w-56 shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted px-1.5 text-[11px] font-normal text-foreground"
+                aria-label={`Active page context: ${activeTab.title || activeTab.url}`}
+                title="Active page"
+              >
+                <Favicon src={activeTab.faviconUrl} className="size-3.5 shrink-0" />
+                <span className="truncate">{activeTab.title || activeTab.url}</span>
+              </span>
+            )}
+            {contextTabs.map((tab) => (
+              <span
+                key={tab.id}
+                className="flex h-6 min-w-0 max-w-56 shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted/50 px-1.5 text-[11px] font-normal text-foreground"
+                aria-label={`Page context: ${tab.title || tab.url}`}
+              >
+                <Favicon src={tab.faviconUrl} className="size-3.5 shrink-0" />
+                <span className="truncate">{tab.title || tab.url}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${tab.title || tab.url} from context`}
+                  className="ml-0.5 shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onClick={() => onRemoveContextTab(tab.id)}
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
           </InputGroupAddon>
         )}
         <InputGroupTextarea
@@ -123,6 +162,48 @@ export function ChatComposer({
           className="max-h-40 min-h-9 resize-none px-3 py-3 text-sm text-foreground"
         />
           <InputGroupAddon align="block-end" className="gap-1.5 px-3 pb-2.5 pt-0.5">
+            <Popover open={isContextPickerOpen} onOpenChange={setIsContextPickerOpen}>
+              <PopoverTrigger asChild>
+                <InputGroupButton
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label="Add page context"
+                  title="Add page context"
+                >
+                  <Plus />
+                </InputGroupButton>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-72 p-0">
+                <Command>
+                  <CommandInput placeholder="Search open pages..." />
+                  <CommandList>
+                    <CommandEmpty>No open tabs</CommandEmpty>
+                    {tabs.length > 0 && (
+                      <CommandGroup heading="Open pages">
+                        {tabs.map((tab) => (
+                          <CommandItem
+                            key={tab.id}
+                            value={`${tab.title} ${tab.url}`}
+                            onSelect={() => {
+                              onAddContextTab(tab)
+                              setIsContextPickerOpen(false)
+                            }}
+                          >
+                            <Favicon src={tab.faviconUrl} className="size-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate">{tab.title || tab.url}</span>
+                            {(activeTab?.id === tab.id
+                              || contextTabs.some((item) => item.id === tab.id)) && (
+                              <Check className="ml-auto size-4" />
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <InputGroupButton

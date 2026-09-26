@@ -1,5 +1,5 @@
 {
-  "name": "slate-shadcn",
+  "name": "slate",
   "version": "0.0.1",
   "description": "A minimal Electron app with React, TypeScript, Vite, and shadcn/ui.",
   "license": "MIT",

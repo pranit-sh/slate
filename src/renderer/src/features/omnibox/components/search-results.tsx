@@ -1,9 +1,10 @@
-import { ArrowRight, Search } from "lucide-react"
+import { ArrowRight, History, Search } from "lucide-react"
+import type { SearchSuggestion } from "../../../../../shared/electron-api"
 import { CommandGroup, CommandItem } from "@/components/ui/command"
 
 interface SearchResultsProps {
   query: string
-  suggestions: string[]
+  suggestions: SearchSuggestion[]
 }
 
 export function SearchResults({ query, suggestions }: SearchResultsProps) {
@@ -18,12 +19,17 @@ export function SearchResults({ query, suggestions }: SearchResultsProps) {
       </CommandItem>
       {suggestions.map((suggestion) => (
         <CommandItem
-          key={suggestion}
-          value={`search ${suggestion}`}
-          onSelect={() => window.electron.browser.navigate(suggestion)}
+          key={`${suggestion.source}:${suggestion.value}`}
+          value={`${suggestion.source} ${suggestion.label} ${suggestion.value}`}
+          onSelect={() => window.electron.browser.navigate(suggestion.value)}
         >
-          <Search />
-          <span className="truncate">{suggestion}</span>
+          {suggestion.source === "history" ? <History /> : <Search />}
+          <span className="min-w-0 flex-1 truncate">{suggestion.label}</span>
+          {suggestion.source === "history" && suggestion.label !== suggestion.value && (
+            <span className="max-w-1/2 shrink-0 truncate text-xs text-muted-foreground">
+              {suggestion.value}
+            </span>
+          )}
         </CommandItem>
       ))}
     </CommandGroup>

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react"
 import { Bookmark, Pin } from "lucide-react"
 import { Toggle } from "@/components/ui/toggle"
 import type { BrowserTab, PinnedSite, SavedSite } from "../../shared/electron-api"
-import { MAX_PINNED_SITES } from "../../shared/features/pinned-sites"
 
 function normalizeUrl(url: string): string {
   try {
@@ -17,7 +16,6 @@ export default function SiteSettingsApp() {
   const [bookmark, setBookmark] = useState<SavedSite | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [pinnedSite, setPinnedSite] = useState<PinnedSite | null>(null)
-  const [pinnedSiteCount, setPinnedSiteCount] = useState(0)
   const [isPinned, setIsPinned] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const contentRef = useRef<HTMLElement>(null)
@@ -40,7 +38,6 @@ export default function SiteSettingsApp() {
           ? pinnedSites.find((site) => site.url === normalizeUrl(activeTab.url)) ?? null
           : null
         setPinnedSite(currentPinnedSite)
-        setPinnedSiteCount(pinnedSites.length)
         setIsPinned(Boolean(currentPinnedSite))
       })
     }
@@ -101,11 +98,9 @@ export default function SiteSettingsApp() {
           faviconUrl: tab.faviconUrl,
         })
         setPinnedSite(site)
-        setPinnedSiteCount((count) => Math.min(MAX_PINNED_SITES, count + 1))
       } else if (pinnedSite) {
         await window.electron.browser.deletePinnedSite(pinnedSite.id)
         setPinnedSite(null)
-        setPinnedSiteCount((count) => Math.max(0, count - 1))
       }
     } catch (error) {
       setIsPinned(previousState)
@@ -116,7 +111,7 @@ export default function SiteSettingsApp() {
   }
 
   return (
-    <main ref={contentRef} className="flex w-44 flex-col gap-1 rounded-lg border bg-popover p-2 text-popover-foreground shadow-md">
+    <main ref={contentRef} className="inline-flex w-max flex-col gap-1 rounded-lg border bg-popover p-2 text-popover-foreground shadow-md">
       <Toggle
         pressed={isBookmarked}
         disabled={!tab || isUpdating}
@@ -124,26 +119,22 @@ export default function SiteSettingsApp() {
         size="sm"
         variant="default"
         aria-label="Toggle bookmark"
-        className="justify-start"
+        className="w-full justify-start"
       >
         <Bookmark className="group-data-[state=on]/toggle:fill-foreground" />
         Bookmark
       </Toggle>
       <Toggle
         pressed={isPinned}
-        disabled={!tab || isUpdating || (!isPinned && pinnedSiteCount >= MAX_PINNED_SITES)}
+        disabled={!tab || isUpdating}
         onPressedChange={(pressed) => void handlePinToggle(pressed)}
         size="sm"
         variant="default"
         aria-label="Toggle pin to home"
-        title={!isPinned && pinnedSiteCount >= MAX_PINNED_SITES ? "Home is full (5 sites)" : undefined}
-        className="justify-start"
+        className="w-full justify-start"
       >
         <Pin className="group-data-[state=on]/toggle:fill-foreground" />
         Pin to home
-        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-          {pinnedSiteCount}/{MAX_PINNED_SITES}
-        </span>
       </Toggle>
     </main>
   )

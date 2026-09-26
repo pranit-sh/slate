@@ -36,7 +36,10 @@ export interface UseAssistantChat {
  * request tracking, incremental chunk accumulation, cancellation, and
  * synchronization with AI settings changes from the main process.
  */
-export function useAssistantChat(): UseAssistantChat {
+export function useAssistantChat(
+  activeContextTabId: string | null,
+  additionalContextTabIds: string[],
+): UseAssistantChat {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [responseStatus, setResponseStatus] = useState<ResponseStatus>("ready")
   const [agentActivity, setAgentActivity] = useState<AiAgentActivity | null>(null)
@@ -230,9 +233,12 @@ export function useAssistantChat(): UseAssistantChat {
         nextMessages
           .filter((message) => !message.error)
           .map(({ role, content: messageContent }) => ({ role, content: messageContent })),
+        activeContextTabId
+          ? [activeContextTabId, ...additionalContextTabIds.filter((id) => id !== activeContextTabId)]
+          : additionalContextTabIds,
       )
     },
-    [activeModel],
+    [activeModel, activeContextTabId, additionalContextTabIds],
   )
 
   const selectModel = useCallback((modelId: string) => {
@@ -313,8 +319,11 @@ export function useAssistantChat(): UseAssistantChat {
       nextMessages
         .filter((message) => !message.error)
         .map(({ role, content }) => ({ role, content })),
+      activeContextTabId
+        ? [activeContextTabId, ...additionalContextTabIds.filter((id) => id !== activeContextTabId)]
+        : additionalContextTabIds,
     )
-  }, [activeModel])
+  }, [activeModel, activeContextTabId, additionalContextTabIds])
 
   const resetConversation = useCallback(() => {
     cancelActiveRequest()

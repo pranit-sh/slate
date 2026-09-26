@@ -1,26 +1,30 @@
-import { Bookmark, Clock3, Code2, Download, Ghost, Plus, Settings2 } from "lucide-react"
+import { Bookmark, Clock3, Code2, Download, PanelRightOpen, Settings2 } from "lucide-react"
 import type { BrowserCommand } from "../types"
+
+const COMMAND_USAGE_STORAGE_KEY = "slate.command-usage"
+
+function getCommandUsage(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(COMMAND_USAGE_STORAGE_KEY) ?? "{}") as Record<string, number>
+  } catch {
+    return {}
+  }
+}
+
+function recordCommandUsage(commandId: string): void {
+  try {
+    const usage = getCommandUsage()
+    usage[commandId] = Date.now()
+    localStorage.setItem(COMMAND_USAGE_STORAGE_KEY, JSON.stringify(usage))
+  } catch {
+    // Command execution must not depend on usage persistence.
+  }
+}
 
 export function getBrowserCommands(): BrowserCommand[] {
   const commandKey = window.electron.platform === "darwin" ? "⌘" : "Ctrl+"
 
-  return [
-    {
-      id: "new-tab",
-      label: "Tab: Open New Tab",
-      keywords: ["create"],
-      icon: Plus,
-      shortcut: [commandKey, "T"],
-      execute: window.electron.browser.newTab,
-    },
-    {
-      id: "new-ghost-tab",
-      label: "Ghost: Open Private Tab",
-      keywords: ["private", "incognito"],
-      icon: Ghost,
-      shortcut: [commandKey, "⇧", "T"],
-      execute: window.electron.browser.newGhostTab,
-    },
+  const commands: BrowserCommand[] = [
     {
       id: "open-history",
       label: "History: Browse Visited Pages",
@@ -46,14 +50,6 @@ export function getBrowserCommands(): BrowserCommand[] {
       execute: window.electron.browser.openDownloads,
     },
     {
-      id: "open-dev-tools",
-      label: "Developer: Inspect Current Page",
-      keywords: ["devtools", "debug"],
-      icon: Code2,
-      shortcut: ["F12"],
-      execute: window.electron.browser.openDevTools,
-    },
-    {
       id: "open-settings",
       label: "Settings: Configure Browser",
       keywords: ["preferences"],
@@ -61,5 +57,36 @@ export function getBrowserCommands(): BrowserCommand[] {
       shortcut: [commandKey, ","],
       execute: window.electron.browser.openSettings,
     },
+    {
+      id: "toggle-assistant-sidebar",
+      label: "Assistant: Toggle Sidebar",
+      keywords: ["ai", "chat", "panel"],
+      icon: PanelRightOpen,
+      shortcut: [commandKey, "⇧", "I"],
+      execute: window.electron.browser.toggleAssistantSidebar,
+    },
+    {
+      id: "toggle-dev-tools",
+      label: "Developer: Toggle DevTools",
+      keywords: ["inspect", "console"],
+      icon: Code2,
+      shortcut: ["F12"],
+      execute: window.electron.browser.toggleActiveTabDevTools,
+    },
   ]
+
+  const usage = getCommandUsage()
+  return commands
+    .map((command, index) => ({ command, index }))
+    .sort((left, right) =>
+      (usage[right.command.id] ?? 0) - (usage[left.command.id] ?? 0)
+      || left.index - right.index
+    )
+    .map(({ command }) => ({
+      ...command,
+      execute: () => {
+        recordCommandUsage(command.id)
+        command.execute()
+      },
+    }))
 }

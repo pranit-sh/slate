@@ -1,29 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import type { DownloadRecord } from "../../../../../shared/electron-api"
 import { getDownloadDay } from "../lib/download-formatters"
+import { useDownloadRecords } from "./use-download-records"
 
 export function useDownloads() {
-  const [downloads, setDownloads] = useState<DownloadRecord[]>([])
+  const downloads = useDownloadRecords() ?? []
   const [expandedDays, setExpandedDays] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const knownDays = useRef(new Set<string>())
-
-  useEffect(() => {
-    let isCurrent = true
-    const refreshDownloads = () => {
-      void window.electron.browser.getDownloads().then((items) => {
-        if (isCurrent) setDownloads(items)
-      })
-    }
-    const removeListener = window.electron.browser.onDownloadsChanged(setDownloads)
-    const interval = window.setInterval(refreshDownloads, 2_000)
-    refreshDownloads()
-    return () => {
-      isCurrent = false
-      window.clearInterval(interval)
-      removeListener()
-    }
-  }, [])
 
   useEffect(() => {
     const newDays = downloads

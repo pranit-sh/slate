@@ -25,7 +25,7 @@ export function AssistantSidebar({
   onResizeStart,
   onResizeEnd,
 }: AssistantSidebarProps) {
-  const { isMobile, open, openMobile } = useSidebar()
+  const { isMobile, open, openMobile, toggleSidebar } = useSidebar()
   const isVisible = isMobile ? openMobile : open
   const currentInset = useRef(0)
   const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
@@ -102,6 +102,10 @@ export function AssistantSidebar({
   }, [isVisible])
 
   useEffect(() => {
+    return window.electron.browser.onAssistantSidebarToggleRequested(toggleSidebar)
+  }, [toggleSidebar])
+
+  useEffect(() => {
     return () => window.electron.browser.setContentRightInset(0)
   }, [])
 
@@ -112,7 +116,7 @@ export function AssistantSidebar({
       className="top-11 h-[calc(100svh-2.75rem)]"
     >
       <SidebarContent className="overflow-hidden bg-white">
-        <AssistantChat />
+        <AssistantChat onClose={toggleSidebar} />
       </SidebarContent>
       <div
         role="separator"

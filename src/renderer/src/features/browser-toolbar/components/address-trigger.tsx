@@ -1,7 +1,7 @@
 import { useEffect, useState, type RefObject } from "react"
 import { BorderBeam } from "border-beam"
-import { ChartNoAxesGantt, Ghost, Mic, MicOff, Plus, Volume2, VolumeX } from "lucide-react"
-import type { BrowserTab } from "../../../../../shared/electron-api"
+import { Bookmark, ChartNoAxesGantt, Ghost, Mic, MicOff, Volume2, VolumeX } from "lucide-react"
+import type { BookmarkFeedback, BrowserTab } from "../../../../../shared/electron-api"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Favicon } from "@/components/favicon"
@@ -12,11 +12,11 @@ interface AddressTriggerProps {
   activeTab: BrowserTab | null
   address: string
   addressButtonRef: RefObject<HTMLButtonElement | null>
+  bookmarkFeedback: BookmarkFeedback | null
   isGhostTab: boolean
   isLoading: boolean
   isOmniboxOpen: boolean
   closeOmnibox(): void
-  createTab(): void
   openOmnibox(): void
 }
 
@@ -24,11 +24,11 @@ export function AddressTrigger({
   activeTab,
   address,
   addressButtonRef,
+  bookmarkFeedback,
   isGhostTab,
   isLoading,
   isOmniboxOpen,
   closeOmnibox,
-  createTab,
   openOmnibox,
 }: AddressTriggerProps) {
   const [isSiteSettingsOpen, setIsSiteSettingsOpen] = useState(false)
@@ -36,6 +36,12 @@ export function AddressTrigger({
     ADDRESS_PLACEHOLDERS[Math.floor(Math.random() * ADDRESS_PLACEHOLDERS.length)])
   const isWebPage = /^https?:\/\//i.test(address)
   const placeholder = isGhostTab ? "Search in Ghost Tab" : addressPlaceholder
+  const feedbackLabel = bookmarkFeedback === "saved"
+    ? "Bookmark saved"
+    : bookmarkFeedback === "removed"
+      ? "Bookmark removed"
+      : null
+  const displayedFeedback = isOmniboxOpen || !isWebPage ? null : feedbackLabel
 
   useEffect(() =>
     window.electron.browser.onSiteSettingsVisibilityChanged(setIsSiteSettingsOpen), [])
@@ -54,7 +60,7 @@ export function AddressTrigger({
   }
 
   return (
-    <div className="no-drag relative flex min-w-0 items-center gap-1">
+    <div className="no-drag relative flex min-w-0 items-center">
       <BorderBeam active={false} className="min-w-0 flex-1" size="pulse-inner" theme="auto">
         <ButtonGroup className="w-full min-w-0 rounded-lg border bg-accent/55">
           {(isGhostTab || isWebPage) && (
@@ -82,13 +88,22 @@ export function AddressTrigger({
             variant="ghost"
             onClick={handleOpenOmnibox}
             className="h-8 min-w-0 flex-1 bg-transparent px-3 font-normal shadow-none"
-            aria-label={placeholder}
+            aria-label={displayedFeedback ?? placeholder}
             aria-haspopup="listbox"
             aria-expanded={isOmniboxOpen}
-            title={address || placeholder}
+            title={displayedFeedback ?? (address || placeholder)}
           >
-            <span className={`truncate ${address ? "" : "text-muted-foreground"}`}>
-              {address || placeholder}
+            <span
+              className={`flex min-w-0 items-center gap-1.5 ${displayedFeedback || address ? "" : "text-muted-foreground"}`}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {displayedFeedback && (
+                <Bookmark
+                  className={`size-4 shrink-0 ${bookmarkFeedback === "saved" ? "fill-current" : ""}`}
+                />
+              )}
+              <span className="truncate">{displayedFeedback ?? (address || placeholder)}</span>
             </span>
           </Button>
           {(activeTab?.isAudible || activeTab?.isMuted) && (
@@ -135,15 +150,6 @@ export function AddressTrigger({
           </Button>
         </ButtonGroup>
       </BorderBeam>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={createTab}
-        aria-label="New tab"
-        title="New tab"
-      >
-        <Plus />
-      </Button>
     </div>
   )
 }

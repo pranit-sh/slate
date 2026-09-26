@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto"
 import { promises as fs } from "node:fs"
 import { dirname } from "node:path"
 import type { PinnedSite, PinnedSiteInput } from "../../../../shared/electron-api"
-import { MAX_PINNED_SITES } from "../../../../shared/features/pinned-sites"
 import type { PinnedSitesRepository } from "../application/pinned-sites-ports"
 
 function normalizeUrl(value: string): string {
@@ -32,9 +31,6 @@ export class JsonPinnedSitesRepository implements PinnedSitesRepository {
     const url = normalizeUrl(input.url)
     const existingSite = this.sites.find((site) => site.url === url)
     if (existingSite) return existingSite
-    if (this.sites.length >= MAX_PINNED_SITES) {
-      throw new Error(`You can pin up to ${MAX_PINNED_SITES} sites`)
-    }
 
     const site: PinnedSite = {
       id: randomUUID(),
@@ -60,7 +56,7 @@ export class JsonPinnedSitesRepository implements PinnedSitesRepository {
   private async load(): Promise<void> {
     try {
       const storedSites = JSON.parse(await fs.readFile(this.filePath, "utf8")) as PinnedSite[]
-      this.sites = storedSites.slice(0, MAX_PINNED_SITES)
+      this.sites = storedSites
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         console.error("Failed to load pinned sites", error)

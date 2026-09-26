@@ -8,6 +8,7 @@ import {
 import {
   BROWSER_CONTENT_CHANNELS,
   IPC_CHANNELS,
+  type BookmarkFeedback,
   type BrowserTab,
   type BrowserNavigationState,
   type BrowserTabsState,
@@ -29,7 +30,6 @@ const VISITS_URL = "slate://visits"
 const SAVED_URL = "slate://bookmarks"
 const DOWNLOADS_URL = "slate://downloads"
 const SETTINGS_URL = "slate://settings"
-const NEW_TAB_SLOT_WIDTH = 36
 export const GHOST_PARTITION = "ghost"
 
 interface TabRecord extends BrowserTab {
@@ -466,6 +466,12 @@ export class BrowserTabs {
     })
   }
 
+  toggleAssistantSidebar(): void {
+    this.hideTabPicker()
+    this.window.webContents.focus()
+    this.sendToToolbar(IPC_CHANNELS.assistantSidebarToggleRequested)
+  }
+
   openSettings(): void {
     const transitionId = ++this.internalPageTransitionId
     this.setTabPickerVisible(false)
@@ -490,6 +496,13 @@ export class BrowserTabs {
     })
   }
 
+  toggleActiveTabDevTools(): void {
+    const webContents = this.activeTab?.view.webContents
+    if (!webContents || webContents.isDestroyed()) return
+    this.setTabPickerVisible(false)
+    webContents.toggleDevTools()
+  }
+
   setSearchEngine(searchEngine: SearchEngine): void {
     this.searchEngine = searchEngine
   }
@@ -499,20 +512,6 @@ export class BrowserTabs {
     for (const url of urls) this.createTab(url)
     const tab = [...this.tabs.values()][Math.min(Math.max(session.activeIndex, 0), this.tabs.size - 1)]
     if (tab) this.activateTab(tab.id)
-  }
-
-  openDevTools(): void {
-    this.setTabPickerVisible(false)
-    const webContents = this.isVisitsVisible
-      ? this.visitsView.webContents
-      : this.isSavedVisible
-        ? this.savedView.webContents
-      : this.isDownloadsVisible
-        ? this.downloadsView.webContents
-      : this.isSettingsVisible
-        ? this.settingsView.webContents
-        : this.activeTab?.view.webContents
-    webContents?.openDevTools({ mode: "detach" })
   }
 
   getState(): BrowserTabsState {
@@ -708,6 +707,7 @@ export class BrowserTabs {
       throw new Error("Only regular web pages can be saved.")
     }
     await this.addBookmark({ title: tab.title, url: tab.url })
+    this.sendBookmarkFeedback("saved")
     return this.toPublicTab(tab)
   }
 
@@ -1077,7 +1077,7 @@ export class BrowserTabs {
 
       if (hasNoModifiers && key === "f12") {
         event.preventDefault()
-        this.openDevTools()
+        this.toggleActiveTabDevTools()
         return
       }
 
@@ -1091,6 +1091,7 @@ export class BrowserTabs {
 
       const action = input.shift
         ? {
+            i: () => this.toggleAssistantSidebar(),
             p: () => this.openTabPicker("> "),
             t: () => this.createGhostTab(),
           }[key]
@@ -1132,9 +1133,11 @@ export class BrowserTabs {
     const tab = this.activeTab
     if (!tab || tab.isGhost || !/^https?:\/\//i.test(tab.url)) return
 
-    void this.addBookmark({ title: tab.title, url: tab.url }).catch((error) => {
-      console.error("Failed to bookmark active tab", error)
-    })
+    void this.addBookmark({ title: tab.title, url: tab.url })
+      .then(() => this.sendBookmarkFeedback("saved"))
+      .catch((error) => {
+        console.error("Failed to bookmark active tab", error)
+      })
   }
 
   private hideVisits(): void {
@@ -1173,6 +1176,10 @@ export class BrowserTabs {
     this.sendToToolbar(IPC_CHANNELS.nextUpRecommendationsChanged, items)
   }
 
+  sendBookmarkFeedback(feedback: BookmarkFeedback): void {
+    this.sendToToolbar(IPC_CHANNELS.bookmarkFeedback, feedback)
+  }
+
   private hideSettings(): void {
     if (!this.isSettingsVisible) return
     this.isSettingsVisible = false
@@ -1191,7 +1198,6 @@ export class BrowserTabs {
   private resizePicker(): void {
     const [windowWidth, windowHeight] = this.window.getContentSize()
     const centerColumnWidth = Math.min(640, Math.max(240, windowWidth - 408))
-    const width = centerColumnWidth - NEW_TAB_SLOT_WIDTH
     const isCommandMode = this.pickerQuery.startsWith(">")
     const hasSearchGroup = !isCommandMode && this.isSearchVisible && Boolean(this.pickerQuery)
     const searchItemCount = this.searchSuggestionCount + (hasSearchGroup ? 1 : 0)
@@ -1208,7 +1214,7 @@ export class BrowserTabs {
     this.pickerView.setBounds({
       x: Math.round((windowWidth - centerColumnWidth) / 2),
       y: 6,
-      width,
+      width: centerColumnWidth,
       height,
     })
   }
@@ -1216,7 +1222,7 @@ export class BrowserTabs {
   private resizeSiteSettings(): void {
     const [windowWidth] = this.window.getContentSize()
     const centerColumnWidth = Math.min(640, Math.max(240, windowWidth - 408))
-    const addressRight = (windowWidth + centerColumnWidth) / 2 - NEW_TAB_SLOT_WIDTH
+    const addressRight = (windowWidth + centerColumnWidth) / 2
     this.siteSettingsView.setBounds({
       x: Math.round(addressRight - this.siteSettingsSize.width),
       y: this.toolbarHeight - 4,

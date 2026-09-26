@@ -3,6 +3,7 @@ import type {
   AiChatMessage,
   AiMessageEvent,
   AiSettings,
+  BookmarkFeedback,
   BrowserNavigationState,
   BrowserSettings,
   BrowserTabsState,
@@ -98,6 +99,9 @@ const electronApi: ElectronApi = {
   window: {
     toggleMaximize: () => ipcRenderer.send(IPC_CHANNELS.toggleMaximize),
   },
+  support: {
+    reportBug: () => ipcRenderer.invoke(IPC_CHANNELS.reportBug),
+  },
   browser: {
     newTab: () => ipcRenderer.send(IPC_CHANNELS.newTab),
     newGhostTab: () => ipcRenderer.send(IPC_CHANNELS.newGhostTab),
@@ -152,8 +156,11 @@ const electronApi: ElectronApi = {
       ipcRenderer.invoke(IPC_CHANNELS.setActiveAiModel, id),
     testAiModelConnection: (id: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.testAiModelConnection, id),
-    startAiMessage: (requestId: string, messages: AiChatMessage[]) =>
-      ipcRenderer.send(IPC_CHANNELS.startAiMessage, requestId, messages),
+    startAiMessage: (
+      requestId: string,
+      messages: AiChatMessage[],
+      contextTabIds: string[],
+    ) => ipcRenderer.send(IPC_CHANNELS.startAiMessage, requestId, messages, contextTabIds),
     cancelAiMessage: (requestId: string) =>
       ipcRenderer.send(IPC_CHANNELS.cancelAiMessage, requestId),
     onAiMessageEvent: (callback: (event: AiMessageEvent) => void) => {
@@ -173,7 +180,8 @@ const electronApi: ElectronApi = {
     openSaved: () => ipcRenderer.send(IPC_CHANNELS.openSaved),
     openDownloads: () => ipcRenderer.send(IPC_CHANNELS.openDownloads),
     openSettings: () => ipcRenderer.send(IPC_CHANNELS.openSettings),
-    openDevTools: () => ipcRenderer.send(IPC_CHANNELS.openDevTools),
+    toggleAssistantSidebar: () => ipcRenderer.send(IPC_CHANNELS.toggleAssistantSidebar),
+    toggleActiveTabDevTools: () => ipcRenderer.send(IPC_CHANNELS.toggleActiveTabDevTools),
     activateTab: (tabId: string) => ipcRenderer.send(IPC_CHANNELS.activateTab, tabId),
     closeTab: (tabId: string) => ipcRenderer.send(IPC_CHANNELS.closeTab, tabId),
     setTabMuted: (tabId: string, muted: boolean) =>
@@ -214,6 +222,10 @@ const electronApi: ElectronApi = {
       ipcRenderer.on(IPC_CHANNELS.downloadsChanged, listener)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.downloadsChanged, listener)
     },
+    onAssistantSidebarToggleRequested: (callback: () => void) => {
+      ipcRenderer.on(IPC_CHANNELS.assistantSidebarToggleRequested, callback)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.assistantSidebarToggleRequested, callback)
+    },
     onPinnedSitesChanged: (callback: (sites: PinnedSite[]) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, sites: PinnedSite[]) => callback(sites)
       ipcRenderer.on(IPC_CHANNELS.pinnedSitesChanged, listener)
@@ -234,6 +246,12 @@ const electronApi: ElectronApi = {
         callback(state)
       ipcRenderer.on(IPC_CHANNELS.navigationStateChanged, listener)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.navigationStateChanged, listener)
+    },
+    onBookmarkFeedback: (callback: (feedback: BookmarkFeedback) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, feedback: BookmarkFeedback) =>
+        callback(feedback)
+      ipcRenderer.on(IPC_CHANNELS.bookmarkFeedback, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.bookmarkFeedback, listener)
     },
     onTabPickerOpened: (callback: () => void) => {
       const listener = () => callback()

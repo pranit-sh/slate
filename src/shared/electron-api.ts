@@ -40,12 +40,15 @@ export const IPC_CHANNELS = {
   cancelAiMessage: "ai:cancel-message",
   aiMessageEvent: "ai:message-event",
   aiSettingsChanged: "ai:settings-changed",
+  reportBug: "support:report-bug",
   getSearchSuggestions: "browser:get-search-suggestions",
   openVisits: "browser:open-visits",
   openSaved: "browser:open-saved",
   openDownloads: "browser:open-downloads",
   openSettings: "browser:open-settings",
-  openDevTools: "browser:open-dev-tools",
+  toggleAssistantSidebar: "browser:toggle-assistant-sidebar",
+  assistantSidebarToggleRequested: "browser:assistant-sidebar-toggle-requested",
+  toggleActiveTabDevTools: "browser:toggle-active-tab-dev-tools",
   activateTab: "browser:activate-tab",
   closeTab: "browser:close-tab",
   setTabMuted: "browser:set-tab-muted",
@@ -74,6 +77,7 @@ export const IPC_CHANNELS = {
   recentlyClosedChanged: "browser:recently-closed-changed",
   nextUpRecommendationsChanged: "browser:next-up-recommendations-changed",
   navigationStateChanged: "browser:navigation-state-changed",
+  bookmarkFeedback: "browser:bookmark-feedback",
 } as const
 
 export const BROWSER_CONTENT_CHANNELS = {
@@ -120,7 +124,15 @@ export interface BrowserNavigationState {
   canGoForward: boolean
 }
 
+export type BookmarkFeedback = "saved" | "removed"
+
 export type SearchEngine = "google" | "bing" | "duckduckgo" | "brave"
+
+export interface SearchSuggestion {
+  label: string
+  value: string
+  source: "history" | "search"
+}
 
 export interface BrowserSettings {
   reopenTabsOnStartup: boolean
@@ -268,6 +280,9 @@ export interface ElectronApi {
   window: {
     toggleMaximize: () => void
   }
+  support: {
+    reportBug: () => Promise<void>
+  }
   browser: {
     newTab: () => void
     newGhostTab: () => void
@@ -305,16 +320,21 @@ export interface ElectronApi {
     deleteAiModel: (id: string) => Promise<AiSettings>
     setActiveAiModel: (id: string) => Promise<AiSettings>
     testAiModelConnection: (id: string) => Promise<AiConnectionStatus>
-    startAiMessage: (requestId: string, messages: AiChatMessage[]) => void
+    startAiMessage: (
+      requestId: string,
+      messages: AiChatMessage[],
+      contextTabIds: string[],
+    ) => void
     cancelAiMessage: (requestId: string) => void
     onAiMessageEvent: (callback: (event: AiMessageEvent) => void) => RemoveListener
     onAiSettingsChanged: (callback: (settings: AiSettings) => void) => RemoveListener
-    getSearchSuggestions: (query: string) => Promise<string[]>
+    getSearchSuggestions: (query: string) => Promise<SearchSuggestion[]>
     openVisits: () => void
     openSaved: () => void
     openDownloads: () => void
     openSettings: () => void
-    openDevTools: () => void
+    toggleAssistantSidebar: () => void
+    toggleActiveTabDevTools: () => void
     activateTab: (tabId: string) => void
     closeTab: (tabId: string) => void
     setTabMuted: (tabId: string, muted: boolean) => void
@@ -335,10 +355,12 @@ export interface ElectronApi {
     onUrlChanged: (callback: (url: string) => void) => RemoveListener
     onTabsChanged: (callback: (state: BrowserTabsState) => void) => RemoveListener
     onDownloadsChanged: (callback: (downloads: DownloadRecord[]) => void) => RemoveListener
+    onAssistantSidebarToggleRequested: (callback: () => void) => RemoveListener
     onPinnedSitesChanged: (callback: (sites: PinnedSite[]) => void) => RemoveListener
     onRecentlyClosedChanged: (callback: (pages: RecentlyClosedPage[]) => void) => RemoveListener
     onNextUpRecommendationsChanged: (callback: (items: NextUpRecommendation[]) => void) => RemoveListener
     onNavigationStateChanged: (callback: (state: BrowserNavigationState) => void) => RemoveListener
+    onBookmarkFeedback: (callback: (feedback: BookmarkFeedback) => void) => RemoveListener
     onTabPickerOpened: (callback: () => void) => RemoveListener
     onSiteSettingsOpened: (callback: () => void) => RemoveListener
     onTabPickerQueryChanged: (callback: (query: string) => void) => RemoveListener
