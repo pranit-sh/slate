@@ -106,6 +106,7 @@ export interface BrowserTab {
   title: string
   url: string
   faviconUrl: string
+  openedByAgent: boolean
   isGhost: boolean
   isLoading: boolean
   isAudible: boolean

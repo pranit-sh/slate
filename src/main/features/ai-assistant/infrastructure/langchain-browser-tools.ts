@@ -6,6 +6,7 @@ import type { AiBrowserContext } from "../application/ai-assistant-ports"
 interface BrowserToolOptions {
   browserContext: AiBrowserContext
   onActivity: (activity: AiAgentActivity) => void
+  onTemporaryTabOpened: (tabId: string) => void
   signal?: AbortSignal
 }
 
@@ -14,6 +15,7 @@ type ActivityDetails = Omit<AiAgentActivity, "id" | "status">
 export function createBrowserTools({
   browserContext,
   onActivity,
+  onTemporaryTabOpened,
   signal,
 }: BrowserToolOptions) {
   const report = (activity: AiAgentActivity): void => onActivity(activity)
@@ -90,17 +92,22 @@ export function createBrowserTools({
   )
 
   const searchWeb = tool(
-    async ({ query }) => {
+    async ({ query, visibility }) => {
+      const temporary = visibility === "temporary"
       const tab = await runWithActivity(
         {
           state: "searching",
           label: `Searching for ${query}`,
           detail: query,
         },
-        () => browserContext.searchWeb(query),
+        () => {
+          const openedTab = browserContext.searchWeb(query, temporary)
+          if (temporary) onTemporaryTabOpened(openedTab.id)
+          return openedTab
+        },
         (result) => ({
           state: "searching",
-          label: "Opened search results",
+          label: temporary ? "Opened temporary search results" : "Opened search results",
           detail: query,
           affectedTabIds: [result.id],
         }),
@@ -109,19 +116,31 @@ export function createBrowserTools({
     },
     {
       name: "search_web",
-      description: "Search the web in a new tab using the user's configured search engine.",
-      schema: z.object({ query: z.string().min(1).max(500) }),
+      description: "Search the web using the user's configured search engine. Use temporary visibility for private intermediate research that should open in a background Ghost Tab and be closed automatically. Use visible only when the user should keep and see the search results tab.",
+      schema: z.object({
+        query: z.string().min(1).max(500),
+        visibility: z.enum(["temporary", "visible"]).default("temporary"),
+      }),
     },
   )
 
   const openTab = tool(
-    async ({ url, active }) => {
+    async ({ url, active, visibility }) => {
+      const temporary = visibility === "temporary"
       const tab = await runWithActivity(
-        { state: "opening", label: "Opening tab", detail: url },
-        () => browserContext.openAgentTab(url, active),
+        {
+          state: "opening",
+          label: temporary ? "Opening temporary research tab" : "Opening tab",
+          detail: url,
+        },
+        () => {
+          const openedTab = browserContext.openAgentTab(url, temporary ? false : active, temporary)
+          if (temporary) onTemporaryTabOpened(openedTab.id)
+          return openedTab
+        },
         (result) => ({
           state: "opening",
-          label: "Opened tab",
+          label: temporary ? "Opened temporary research tab" : "Opened tab",
           detail: result.title || result.url,
           affectedTabIds: [result.id],
         }),
@@ -130,10 +149,11 @@ export function createBrowserTools({
     },
     {
       name: "open_tab",
-      description: "Open an HTTP or HTTPS URL in a new foreground or background tab.",
+      description: "Open an HTTP or HTTPS URL. Use temporary visibility for private intermediate research that should open in a background Ghost Tab and be closed automatically. Use visible for a useful page the user should keep; visible tabs are marked as opened by AI.",
       schema: z.object({
         url: z.url(),
         active: z.boolean().default(true),
+        visibility: z.enum(["temporary", "visible"]).default("visible"),
       }),
     },
   )
@@ -256,11 +276,7 @@ export function createBrowserTools({
           label: "Closing tab",
           affectedTabIds: [tabId],
         },
-        () => {
-          const tab = browserContext.getAgentTabs().find((candidate) => candidate.id === tabId)
-          if (!tab) throw new Error("Tab not found.")
-          return browserContext.closeAgentTab(tabId)
-        },
+        () => browserContext.closeAgentTab(tabId),
         (result) => ({
           state: "organizing",
           label: "Closed tab",

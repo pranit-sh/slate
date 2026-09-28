@@ -245,7 +245,7 @@ export class BrowserTabs {
     }
   }
 
-  createTab(url = HOME_URL, isGhost = false, active = true): string {
+  createTab(url = HOME_URL, isGhost = false, active = true, openedByAgent = false): string {
     const shouldActivate = active || this.activeTabId === null
     if (shouldActivate) this.internalPageTransitionId += 1
     const wasVisitsVisible = this.isVisitsVisible
@@ -298,6 +298,7 @@ export class BrowserTabs {
       title: "New Tab",
       url: this.displayUrl(url),
       faviconUrl: "",
+      openedByAgent,
       isGhost,
       isLoading: false,
       isAudible: false,
@@ -557,11 +558,12 @@ export class BrowserTabs {
       activeTabId: this.activeTabId,
       isActiveTabGhost: this.activeTab?.isGhost ?? false,
       isActiveTabLoading: this.activeTab?.isLoading ?? false,
-      tabs: this.selectableTabs.map(({ id, title, url, faviconUrl, isGhost, isLoading, isAudible, isMuted, isUsingMicrophone, isMicrophoneMuted }) => ({
+      tabs: this.selectableTabs.map(({ id, title, url, faviconUrl, openedByAgent, isGhost, isLoading, isAudible, isMuted, isUsingMicrophone, isMicrophoneMuted }) => ({
         id,
         title,
         url,
         faviconUrl,
+        openedByAgent,
         isGhost,
         isLoading,
         isAudible,
@@ -663,8 +665,8 @@ export class BrowserTabs {
     return state.tabs.find((tab) => tab.id === state.activeTabId) ?? null
   }
 
-  openAgentTab(value: string, active = true): BrowserTab {
-    const tabId = this.openTab(normalizeHttpUrl(value), active)
+  openAgentTab(value: string, active = true, temporary = false): BrowserTab {
+    const tabId = this.createTab(normalizeHttpUrl(value), temporary, active, true)
     return this.toPublicTab(this.requireTab(tabId))
   }
 
@@ -674,7 +676,7 @@ export class BrowserTabs {
     return tabId
   }
 
-  searchWeb(query: string): BrowserTab {
+  searchWeb(query: string, temporary = false): BrowserTab {
     const normalizedQuery = query.trim()
     if (!normalizedQuery) throw new Error("A search query is required.")
     const searchUrls: Record<SearchEngine, string> = {
@@ -683,7 +685,11 @@ export class BrowserTabs {
       duckduckgo: "https://duckduckgo.com/?q=",
       brave: "https://search.brave.com/search?q=",
     }
-    return this.openAgentTab(`${searchUrls[this.searchEngine]}${encodeURIComponent(normalizedQuery)}`)
+    return this.openAgentTab(
+      `${searchUrls[this.searchEngine]}${encodeURIComponent(normalizedQuery)}`,
+      !temporary,
+      temporary,
+    )
   }
 
   activateAgentTab(tabId: string): BrowserTab {
@@ -1144,8 +1150,8 @@ export class BrowserTabs {
   }
 
   private toPublicTab(tab: TabRecord): BrowserTab {
-    const { id, title, url, faviconUrl, isGhost, isLoading, isAudible, isMuted, isUsingMicrophone, isMicrophoneMuted } = tab
-    return { id, title, url, faviconUrl, isGhost, isLoading, isAudible, isMuted, isUsingMicrophone, isMicrophoneMuted }
+    const { id, title, url, faviconUrl, openedByAgent, isGhost, isLoading, isAudible, isMuted, isUsingMicrophone, isMicrophoneMuted } = tab
+    return { id, title, url, faviconUrl, openedByAgent, isGhost, isLoading, isAudible, isMuted, isUsingMicrophone, isMicrophoneMuted }
   }
 
   private setMicrophoneState(tab: TabRecord, active: boolean): void {

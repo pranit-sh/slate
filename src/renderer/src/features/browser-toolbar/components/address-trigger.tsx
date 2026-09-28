@@ -90,7 +90,7 @@ export function AddressTrigger({
     <div ref={containerRef} className="no-drag relative flex min-w-0 items-center">
       <BorderBeam active={false} className="min-w-0 flex-1" size="pulse-inner" theme="auto">
         <ButtonGroup
-          className={`w-full min-w-0 rounded-lg border bg-accent/55 transition-[border-color,box-shadow] duration-150 ${displayedFeedback ? "border-foreground ring-1 ring-foreground" : ""}`}
+          className={`w-full min-w-0 rounded-lg border bg-accent/55 transition-[border-color,box-shadow] duration-150 ${activeTab?.openedByAgent ? "agent-opened-address" : ""} ${displayedFeedback ? "border-foreground ring-1 ring-foreground" : ""}`}
         >
           {(isGhostTab || isWebPage) && (
             <span

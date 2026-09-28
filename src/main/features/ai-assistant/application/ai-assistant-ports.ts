@@ -26,8 +26,8 @@ export interface AiBrowserContext {
   getAgentTabs(): BrowserTab[]
   readActivePage(): Promise<AiPageContent>
   readPage(tabId: string): Promise<AiPageContent>
-  searchWeb(query: string): BrowserTab
-  openAgentTab(url: string, active?: boolean): BrowserTab
+  searchWeb(query: string, temporary?: boolean): BrowserTab
+  openAgentTab(url: string, active?: boolean, temporary?: boolean): BrowserTab
   activateAgentTab(tabId: string): BrowserTab
   navigateAgentTab(tabId: string, destination: string, signal?: AbortSignal): Promise<BrowserTab>
   findInPage(tabId: string, query: string, signal?: AbortSignal): Promise<number>

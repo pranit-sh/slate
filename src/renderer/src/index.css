@@ -135,6 +135,23 @@ a,
   -webkit-app-region: drag;
 }
 
+.agent-opened-address {
+  position: relative;
+}
+
+.agent-opened-address::before {
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(100deg, oklch(0.7 0.18 25), oklch(0.74 0.16 150), oklch(0.68 0.18 250), oklch(0.72 0.19 330));
+  content: "";
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
