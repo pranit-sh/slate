@@ -2,7 +2,7 @@ import { tool } from "@langchain/core/tools"
 import { z } from "zod"
 import type { AiAgentActivity } from "../../../../shared/electron-api"
 import type { AiBrowserContext } from "../application/ai-assistant-ports"
-import { fetchPublicWebResource } from "./public-web-resource-fetcher"
+import { createFetchResourceTool } from "./langchain-fetch-resource-tool"
 
 interface BrowserToolOptions {
   browserContext: AiBrowserContext
@@ -17,7 +17,6 @@ export function createBrowserTools({
   onActivity,
   signal,
 }: BrowserToolOptions) {
-  const resourceCache = new Map<string, Awaited<ReturnType<typeof fetchPublicWebResource>>>()
   const searchedQueries = new Set<string>()
   let searchTabId: string | undefined
   let pendingUserAction: { origin: string; accessStatus: string } | undefined
@@ -112,32 +111,7 @@ export function createBrowserTools({
     },
   )
 
-  const fetchResource = tool(
-    async ({ url }) => {
-      const resource = await runWithActivity(
-        { state: "reading", label: "Fetching public data", detail: url },
-        async () => {
-          const normalizedUrl = new URL(url).toString()
-          const cachedResource = resourceCache.get(normalizedUrl)
-          if (cachedResource) return cachedResource
-          const resource = await fetchPublicWebResource(normalizedUrl, signal)
-          resourceCache.set(normalizedUrl, resource)
-          return resource
-        },
-        (result) => ({
-          state: "reading",
-          label: "Fetched public data",
-          detail: result.url,
-        }),
-      )
-      return JSON.stringify(resource)
-    },
-    {
-      name: "fetch_resource",
-      description: "Fetch a public HTTPS JSON, XML, CSV, or plain-text API/resource without opening a browser tab. This sends no browser cookies or credentials and rejects HTML, private-network addresses, oversized responses, and unsafe redirects. Prefer official APIs and structured endpoints when available.",
-      schema: z.object({ url: z.url() }),
-    },
-  )
+  const fetchResource = createFetchResourceTool({ onActivity, signal })
 
   const searchWeb = tool(
     async ({ query }) => {
