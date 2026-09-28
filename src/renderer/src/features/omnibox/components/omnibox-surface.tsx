@@ -18,6 +18,7 @@ export function OmniboxSurface() {
   return (
     <main className="h-screen overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg">
       <Command
+        loop
         shouldFilter={false}
         value={omnibox.selectedValue}
         onValueChange={omnibox.setSelectedValue}

@@ -270,16 +270,18 @@ export function ChatMessageList({
                             {message.error}
                           </BubbleContent>
                         </Bubble>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          className="font-normal text-muted-foreground"
-                          onClick={() => onRetry(message.id)}
-                        >
-                          <RefreshCw />
-                          Retry
-                        </Button>
+                        {hasModel && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            className="font-normal text-muted-foreground"
+                            onClick={() => onRetry(message.id)}
+                          >
+                            <RefreshCw />
+                            Retry
+                          </Button>
+                        )}
                       </div>
                     )}
                     {message.interrupted && (

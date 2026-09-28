@@ -116,7 +116,7 @@ export function AssistantSidebar({
       className="top-11 h-[calc(100svh-2.75rem)]"
     >
       <SidebarContent className="overflow-hidden bg-white">
-        <AssistantChat onClose={toggleSidebar} />
+        <AssistantChat isOpen={isVisible} onClose={toggleSidebar} />
       </SidebarContent>
       <div
         role="separator"

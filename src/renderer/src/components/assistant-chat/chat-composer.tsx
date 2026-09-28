@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useRef, useState } from "react"
+import { type KeyboardEvent, useEffect, useRef, useState } from "react"
 import { BorderBeam } from "border-beam"
 import { ArrowUpIcon, Check, Plus, Square, X } from "lucide-react"
 
@@ -59,6 +59,7 @@ function ModelOption({ model }: { model: AiModel }) {
 }
 
 interface ChatComposerProps {
+  isPanelOpen: boolean
   models: AiModel[]
   activeModelId: string | null
   tabs: BrowserTab[]
@@ -78,6 +79,7 @@ interface ChatComposerProps {
  * control on the right.
  */
 export function ChatComposer({
+  isPanelOpen,
   models,
   activeModelId,
   tabs,
@@ -96,7 +98,13 @@ export function ChatComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const hasModel = models.length > 0
   const activeModel = models.find((model) => model.id === activeModelId)
-  const canSend = Boolean(draft.trim()) && !isResponding && hasModel
+  const canSend = Boolean(draft.trim()) && !isResponding
+
+  useEffect(() => {
+    if (!isPanelOpen) return
+    const animationFrame = requestAnimationFrame(() => textareaRef.current?.focus())
+    return () => cancelAnimationFrame(animationFrame)
+  }, [isPanelOpen])
 
   function submit() {
     if (!canSend) return
@@ -251,7 +259,6 @@ export function ChatComposer({
                 variant="default"
                 size="icon-xs"
                 onClick={submit}
-                disabled={!canSend}
                 aria-label="Send message"
                 className="ml-auto rounded-full"
               >

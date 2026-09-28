@@ -19,10 +19,11 @@ import { useAssistantChat } from "./use-assistant-chat"
 import type { BrowserTab } from "../../../../shared/electron-api"
 
 interface AssistantChatProps {
+  isOpen: boolean
   onClose: () => void
 }
 
-export function AssistantChat({ onClose }: AssistantChatProps) {
+export function AssistantChat({ isOpen, onClose }: AssistantChatProps) {
   const [contextTabIds, setContextTabIds] = useState<string[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [tabs, setTabs] = useState<BrowserTab[]>([])
@@ -145,6 +146,7 @@ export function AssistantChat({ onClose }: AssistantChatProps) {
       />
 
       <ChatComposer
+        isPanelOpen={isOpen}
         models={aiSettings.models}
         activeModelId={aiSettings.activeModelId}
         tabs={tabs}

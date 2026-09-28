@@ -203,7 +203,7 @@ export function useAssistantChat(
   const sendMessage = useCallback(
     (rawContent: string) => {
       const content = rawContent.trim()
-      if (!content || activeRequestRef.current || !activeModel) return
+      if (!content || activeRequestRef.current) return
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -213,6 +213,21 @@ export function useAssistantChat(
       }
 
       const nextMessages = [...messagesRef.current, userMessage]
+      if (!activeModel) {
+        setMessages([
+          ...nextMessages,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "",
+            createdAt: Date.now(),
+            error: "No AI model is configured. Add a provider in Settings to continue.",
+            replyToId: userMessage.id,
+          },
+        ])
+        return
+      }
+
       const requestId = crypto.randomUUID()
       activeRequestRef.current = {
         requestId,
