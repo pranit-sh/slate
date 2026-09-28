@@ -1,0 +1,5 @@
+export { AssistantCalloutBlock } from "./assistant-callout-block"
+export { AssistantCardBlock } from "./assistant-card-block"
+export { AssistantChartBlock } from "./assistant-chart-block"
+export { AssistantLinkListBlock } from "./assistant-link-list-block"
+export { AssistantTableBlock } from "./assistant-table-block"

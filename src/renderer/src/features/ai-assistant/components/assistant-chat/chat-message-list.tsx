@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/message-scroller"
 import type { AiAgentActivity, BrowserTab } from "../../../../../../shared/electron-api"
 import { AssistantMessageContent } from "./assistant-message-content"
+import { AssistantUiBlock } from "./assistant-ui-block"
 import { QUICK_PROMPTS } from "./content"
 import type { ChatMessage, ResponseStatus } from "./types"
 
@@ -244,24 +245,29 @@ export function ChatMessageList({
                     {message.activities && message.activities.length > 0 && (
                       <ActivityTimeline activities={message.activities} />
                     )}
-                    {message.content && (
-                      <Bubble
-                        align={message.role === "user" ? "end" : "start"}
-                        variant={message.role === "user" ? "outline" : "ghost"}
-                        className={
-                          message.role === "user"
-                            ? "max-w-[92%] *:data-[slot=bubble-content]:border-foreground/20"
-                            : "max-w-full"
-                        }
-                      >
-                        <BubbleContent className="rounded-lg">
-                          {message.role === "assistant" ? (
-                            <AssistantMessageContent content={message.content} tabs={tabs} />
-                          ) : (
-                            message.content
-                          )}
-                        </BubbleContent>
-                      </Bubble>
+                    {message.parts.map((part, index) =>
+                      part.type === "text" ? (
+                        <Bubble
+                          key={`text-${index}`}
+                          align={message.role === "user" ? "end" : "start"}
+                          variant={message.role === "user" ? "outline" : "ghost"}
+                          className={
+                            message.role === "user"
+                              ? "max-w-[92%] *:data-[slot=bubble-content]:border-foreground/20"
+                              : "max-w-full"
+                          }
+                        >
+                          <BubbleContent className="rounded-lg">
+                            {message.role === "assistant" ? (
+                              <AssistantMessageContent content={part.content} tabs={tabs} />
+                            ) : (
+                              part.content
+                            )}
+                          </BubbleContent>
+                        </Bubble>
+                      ) : (
+                        <AssistantUiBlock key={`ui-${index}`} block={part.block} />
+                      ),
                     )}
                     {message.error && (
                       <div className="flex max-w-full items-center gap-1">
@@ -289,7 +295,7 @@ export function ChatMessageList({
                         <MarkerContent>Response stopped</MarkerContent>
                       </Marker>
                     )}
-                    {message.content && (
+                    {message.parts.length > 0 && (
                       <MessageFooter
                         className={`min-h-4 text-[10px] font-normal opacity-0 transition-opacity group-hover/message:opacity-100 ${message.role === "assistant" ? "w-full" : ""}`}
                       >

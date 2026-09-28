@@ -10,6 +10,7 @@ import {
   IPC_CHANNELS,
   type AddressBarBounds,
   type AddressBarFeedback,
+  type AiPageAccessStatus,
   type BrowserTab,
   type BrowserNavigationState,
   type BrowserTabsState,
@@ -49,9 +50,32 @@ export interface ActivePageContent {
   text: string
   links: Array<{ text: string; url: string }>
   truncated: boolean
+  accessStatus: AiPageAccessStatus
 }
 
 const MAX_PAGE_TEXT_LENGTH = 50_000
+
+function detectPageAccessStatus(title: string, url: string, text: string): AiPageAccessStatus {
+  const pageIdentity = `${title}\n${url}`.toLocaleLowerCase()
+  const sample = `${pageIdentity}\n${text.slice(0, 10_000).toLocaleLowerCase()}`
+  if (/verify (that )?you('?re| are) human|checking your browser|are you a robot|captcha|unusual traffic|cloudflare ray id/.test(sample)) {
+    return "verification-required"
+  }
+  if (/access denied|request (?:was )?blocked|403 forbidden|too many requests|temporarily blocked/.test(sample)) {
+    return "blocked"
+  }
+  if (/(?:^|[/\s|_-])(sign[ -]?in|log[ -]?in|login)(?:$|[/\s|?&#_-])/.test(pageIdentity)
+    || /sign in to continue|log in to continue|login to continue|authentication required|you must be (?:signed|logged) in/.test(sample)) {
+    return "login-required"
+  }
+  if (/subscribe to continue|already a subscriber|unlock this article|subscription required/.test(sample)) {
+    return "paywall"
+  }
+  if (/before you continue|consent required|manage (?:your )?consent/.test(sample)) {
+    return "consent-required"
+  }
+  return "accessible"
+}
 
 function getNavigationUrl(value: string, searchEngine: SearchEngine): string | null {
   const input = value.trim()
@@ -645,14 +669,17 @@ export class BrowserTabs {
     if (typeof selectedText !== "string" || typeof text !== "string" || !Array.isArray(links)) {
       throw new Error("The page did not return readable content.")
     }
+    const title = tab.view.webContents.getTitle() || tab.title
+    const url = tab.view.webContents.getURL()
     return {
       tabId: tab.id,
-      title: tab.view.webContents.getTitle() || tab.title,
-      url: tab.view.webContents.getURL(),
+      title,
+      url,
       selectedText: selectedText.slice(0, MAX_PAGE_TEXT_LENGTH),
       text: text.slice(0, MAX_PAGE_TEXT_LENGTH),
       links: links.filter(isPageLink),
       truncated: selectedText.length > MAX_PAGE_TEXT_LENGTH || text.length > MAX_PAGE_TEXT_LENGTH,
+      accessStatus: detectPageAccessStatus(title, url, text),
     }
   }
 
@@ -665,8 +692,8 @@ export class BrowserTabs {
     return state.tabs.find((tab) => tab.id === state.activeTabId) ?? null
   }
 
-  openAgentTab(value: string, active = true, temporary = false): BrowserTab {
-    const tabId = this.createTab(normalizeHttpUrl(value), temporary, active, true)
+  openAgentTab(value: string, active = false): BrowserTab {
+    const tabId = this.createTab(normalizeHttpUrl(value), false, active, true)
     return this.toPublicTab(this.requireTab(tabId))
   }
 
@@ -676,7 +703,7 @@ export class BrowserTabs {
     return tabId
   }
 
-  searchWeb(query: string, temporary = false): BrowserTab {
+  searchWeb(query: string): BrowserTab {
     const normalizedQuery = query.trim()
     if (!normalizedQuery) throw new Error("A search query is required.")
     const searchUrls: Record<SearchEngine, string> = {
@@ -685,11 +712,7 @@ export class BrowserTabs {
       duckduckgo: "https://duckduckgo.com/?q=",
       brave: "https://search.brave.com/search?q=",
     }
-    return this.openAgentTab(
-      `${searchUrls[this.searchEngine]}${encodeURIComponent(normalizedQuery)}`,
-      !temporary,
-      temporary,
-    )
+    return this.openAgentTab(`${searchUrls[this.searchEngine]}${encodeURIComponent(normalizedQuery)}`, false)
   }
 
   activateAgentTab(tabId: string): BrowserTab {

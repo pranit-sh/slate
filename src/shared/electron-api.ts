@@ -1,3 +1,15 @@
+import type { AiUiBlock } from "./features/ai-assistant"
+
+export type {
+  AiCalloutBlock,
+  AiCardBlock,
+  AiChartBlock,
+  AiLinkListBlock,
+  AiTableBlock,
+  AiUiBlock,
+  AiUiValue,
+} from "./features/ai-assistant"
+
 export const IPC_CHANNELS = {
   toggleMaximize: "window:toggle-maximize",
   newTab: "browser:new-tab",
@@ -188,6 +200,14 @@ export interface AiChatMessage {
   content: string
 }
 
+export type AiPageAccessStatus =
+  | "accessible"
+  | "verification-required"
+  | "login-required"
+  | "consent-required"
+  | "paywall"
+  | "blocked"
+
 export interface AiAgentActivity {
   id?: string
   state:
@@ -208,6 +228,7 @@ export interface AiAgentActivity {
 
 export type AiMessageEvent =
   | { requestId: string; type: "chunk"; content: string }
+  | { requestId: string; type: "ui-block"; block: AiUiBlock }
   | { requestId: string; type: "activity"; activity: AiAgentActivity }
   | { requestId: string; type: "done" }
   | { requestId: string; type: "error"; message: string }

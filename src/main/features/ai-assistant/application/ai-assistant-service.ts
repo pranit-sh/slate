@@ -88,6 +88,7 @@ export class AiAssistantService {
           onChunk: (content) => {
             if (content) emit({ type: "chunk", content })
           },
+          onUiBlock: (block) => emit({ type: "ui-block", block }),
         },
         controller.signal,
       )

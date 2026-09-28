@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { PanelRightClose, RotateCcw } from "lucide-react"
+import { Maximize2, Minimize2, PanelRightClose, RotateCcw } from "lucide-react"
 
 import {
   AlertDialog,
@@ -20,10 +20,19 @@ import type { BrowserTab } from "../../../../../../shared/electron-api"
 
 interface AssistantChatProps {
   isOpen: boolean
+  isFullWidth: boolean
+  canToggleFullWidth: boolean
   onClose: () => void
+  onToggleFullWidth: () => void
 }
 
-export function AssistantChat({ isOpen, onClose }: AssistantChatProps) {
+export function AssistantChat({
+  isOpen,
+  isFullWidth,
+  canToggleFullWidth,
+  onClose,
+  onToggleFullWidth,
+}: AssistantChatProps) {
   const [contextTabIds, setContextTabIds] = useState<string[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [tabs, setTabs] = useState<BrowserTab[]>([])
@@ -120,6 +129,19 @@ export function AssistantChat({ isOpen, onClose }: AssistantChatProps) {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          {canToggleFullWidth && (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="shrink-0"
+              onClick={onToggleFullWidth}
+              aria-label={isFullWidth ? "Restore assistant width" : "Expand assistant to full width"}
+              title={isFullWidth ? "Restore assistant width" : "Expand assistant to full width"}
+            >
+              {isFullWidth ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+          )}
           <Button
             type="button"
             size="icon-sm"

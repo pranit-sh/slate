@@ -2,11 +2,11 @@ import { tool } from "@langchain/core/tools"
 import { z } from "zod"
 import type { AiAgentActivity } from "../../../../shared/electron-api"
 import type { AiBrowserContext } from "../application/ai-assistant-ports"
+import { fetchPublicWebResource } from "./public-web-resource-fetcher"
 
 interface BrowserToolOptions {
   browserContext: AiBrowserContext
   onActivity: (activity: AiAgentActivity) => void
-  onTemporaryTabOpened: (tabId: string) => void
   signal?: AbortSignal
 }
 
@@ -15,9 +15,29 @@ type ActivityDetails = Omit<AiAgentActivity, "id" | "status">
 export function createBrowserTools({
   browserContext,
   onActivity,
-  onTemporaryTabOpened,
   signal,
 }: BrowserToolOptions) {
+  const resourceCache = new Map<string, Awaited<ReturnType<typeof fetchPublicWebResource>>>()
+  const searchedQueries = new Set<string>()
+  let searchTabId: string | undefined
+  let pendingUserAction: { origin: string; accessStatus: string } | undefined
+  const getOrigin = (value: string): string | null => {
+    try {
+      return new URL(value).origin
+    } catch {
+      return null
+    }
+  }
+  const recordAccessStatus = (page: { url: string; accessStatus: string }): void => {
+    if (page.accessStatus === "accessible") return
+    const origin = getOrigin(page.url)
+    if (origin) pendingUserAction = { origin, accessStatus: page.accessStatus }
+  }
+  const assertBrowserAvailable = (): void => {
+    if (pendingUserAction) {
+      throw new Error(`${pendingUserAction.origin} requires user action (${pendingUserAction.accessStatus}). Pause browsing and ask the user to complete the required step in the existing tab.`)
+    }
+  }
   const report = (activity: AiAgentActivity): void => onActivity(activity)
   const startActivity = (activity: Omit<AiAgentActivity, "id" | "status">) => {
     const id = crypto.randomUUID()
@@ -63,6 +83,7 @@ export function createBrowserTools({
           affectedTabIds: [result.tabId],
         }),
       )
+      recordAccessStatus(page)
       return JSON.stringify(page)
     },
     {
@@ -91,9 +112,35 @@ export function createBrowserTools({
     },
   )
 
+  const fetchResource = tool(
+    async ({ url }) => {
+      const resource = await runWithActivity(
+        { state: "reading", label: "Fetching public data", detail: url },
+        async () => {
+          const normalizedUrl = new URL(url).toString()
+          const cachedResource = resourceCache.get(normalizedUrl)
+          if (cachedResource) return cachedResource
+          const resource = await fetchPublicWebResource(normalizedUrl, signal)
+          resourceCache.set(normalizedUrl, resource)
+          return resource
+        },
+        (result) => ({
+          state: "reading",
+          label: "Fetched public data",
+          detail: result.url,
+        }),
+      )
+      return JSON.stringify(resource)
+    },
+    {
+      name: "fetch_resource",
+      description: "Fetch a public HTTPS JSON, XML, CSV, or plain-text API/resource without opening a browser tab. This sends no browser cookies or credentials and rejects HTML, private-network addresses, oversized responses, and unsafe redirects. Prefer official APIs and structured endpoints when available.",
+      schema: z.object({ url: z.url() }),
+    },
+  )
+
   const searchWeb = tool(
-    async ({ query, visibility }) => {
-      const temporary = visibility === "temporary"
+    async ({ query }) => {
       const tab = await runWithActivity(
         {
           state: "searching",
@@ -101,13 +148,26 @@ export function createBrowserTools({
           detail: query,
         },
         () => {
-          const openedTab = browserContext.searchWeb(query, temporary)
-          if (temporary) onTemporaryTabOpened(openedTab.id)
-          return openedTab
+          assertBrowserAvailable()
+          const normalizedQuery = query.trim().toLocaleLowerCase()
+          if (searchedQueries.has(normalizedQuery)) {
+            throw new Error("This search was already opened. Reuse its existing results instead of repeating it.")
+          }
+          searchedQueries.add(normalizedQuery)
+          if (searchTabId) {
+            try {
+              browserContext.closeAgentTab(searchTabId)
+            } catch {
+              // The user may already have closed the previous search tab.
+            }
+          }
+          const tab = browserContext.searchWeb(query)
+          searchTabId = tab.id
+          return tab
         },
         (result) => ({
           state: "searching",
-          label: temporary ? "Opened temporary search results" : "Opened search results",
+          label: "Opened search results",
           detail: query,
           affectedTabIds: [result.id],
         }),
@@ -116,31 +176,29 @@ export function createBrowserTools({
     },
     {
       name: "search_web",
-      description: "Search the web using the user's configured search engine. Use temporary visibility for private intermediate research that should open in a background Ghost Tab and be closed automatically. Use visible only when the user should keep and see the search results tab.",
-      schema: z.object({
-        query: z.string().min(1).max(500),
-        visibility: z.enum(["temporary", "visible"]).default("temporary"),
-      }),
+      description: "Open the user's configured search engine in a normal background tab. Use only when API/resource retrieval is insufficient or the user should inspect the results. If verification appears, read the page once and ask the user to complete it; do not open another search tab.",
+      schema: z.object({ query: z.string().min(1).max(500) }),
     },
   )
 
   const openTab = tool(
-    async ({ url, active, visibility }) => {
-      const temporary = visibility === "temporary"
+    async ({ url }) => {
       const tab = await runWithActivity(
         {
           state: "opening",
-          label: temporary ? "Opening temporary research tab" : "Opening tab",
+          label: "Opening tab",
           detail: url,
         },
         () => {
-          const openedTab = browserContext.openAgentTab(url, temporary ? false : active, temporary)
-          if (temporary) onTemporaryTabOpened(openedTab.id)
-          return openedTab
+          assertBrowserAvailable()
+          const normalizedUrl = new URL(url).toString()
+          const existingTab = browserContext.getAgentTabs().find((tab) => tab.url === normalizedUrl)
+          if (existingTab) return existingTab
+          return browserContext.openAgentTab(url, false)
         },
         (result) => ({
           state: "opening",
-          label: temporary ? "Opened temporary research tab" : "Opened tab",
+          label: "Opened tab",
           detail: result.title || result.url,
           affectedTabIds: [result.id],
         }),
@@ -149,12 +207,8 @@ export function createBrowserTools({
     },
     {
       name: "open_tab",
-      description: "Open an HTTP or HTTPS URL. Use temporary visibility for private intermediate research that should open in a background Ghost Tab and be closed automatically. Use visible for a useful page the user should keep; visible tabs are marked as opened by AI.",
-      schema: z.object({
-        url: z.url(),
-        active: z.boolean().default(true),
-        visibility: z.enum(["temporary", "visible"]).default("visible"),
-      }),
+      description: "Open an HTTP or HTTPS URL in a normal tab marked as opened by AI. Use for pages the user should inspect, dynamic pages unavailable through fetch_resource, or pages requiring user verification, login, or consent.",
+      schema: z.object({ url: z.url() }),
     },
   )
 
@@ -199,6 +253,7 @@ export function createBrowserTools({
           affectedTabIds: [tabId],
         }),
       )
+      recordAccessStatus(page)
       return JSON.stringify(page)
     },
     {
@@ -248,7 +303,10 @@ export function createBrowserTools({
           detail: destination,
           affectedTabIds: [tabId],
         },
-        () => browserContext.navigateAgentTab(tabId, destination, signal),
+        () => {
+          assertBrowserAvailable()
+          return browserContext.navigateAgentTab(tabId, destination, signal)
+        },
         (result) => ({
           state: "navigating",
           label: "Navigation complete",
@@ -387,6 +445,7 @@ export function createBrowserTools({
   return [
     readCurrentPage,
     listTabs,
+    fetchResource,
     searchWeb,
     openTab,
     activateTab,

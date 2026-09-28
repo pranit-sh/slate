@@ -4,10 +4,26 @@ import type {
   AiAgentActivity,
   AiModel,
   AiSettings,
+  AiUiBlock,
 } from "../../../../../../shared/electron-api"
-import type { ChatMessage, ResponseStatus } from "./types"
+import { getMessageText } from "./types"
+import type { ChatMessage, ChatMessagePart, ResponseStatus } from "./types"
 
 const EMPTY_AI_SETTINGS: AiSettings = { activeModelId: null, models: [] }
+
+function appendMessagePart(
+  parts: ChatMessagePart[],
+  part: ChatMessagePart,
+): ChatMessagePart[] {
+  const lastPart = parts[parts.length - 1]
+  if (part.type === "text" && lastPart?.type === "text") {
+    return [
+      ...parts.slice(0, -1),
+      { ...lastPart, content: lastPart.content + part.content },
+    ]
+  }
+  return [...parts, part]
+}
 
 interface ActiveRequest {
   requestId: string
@@ -52,7 +68,7 @@ export function useAssistantChat(
     [aiSettings],
   )
 
-  const appendToActiveMessage = useCallback((text: string) => {
+  const appendPartToActiveMessage = useCallback((part: ChatMessagePart) => {
     const request = activeRequestRef.current
     if (!request) return
     setMessages((current) => {
@@ -60,7 +76,7 @@ export function useAssistantChat(
       if (existingMessage) {
         return current.map((message) =>
           message.id === request.messageId
-            ? { ...message, content: message.content + text }
+            ? { ...message, parts: appendMessagePart(message.parts, part) }
             : message,
         )
       }
@@ -69,7 +85,7 @@ export function useAssistantChat(
         {
           id: request.messageId,
           role: "assistant",
-          content: text,
+          parts: [part],
           createdAt: Date.now(),
           modelName: request.modelName,
           replyToId: request.userMessageId,
@@ -119,7 +135,7 @@ export function useAssistantChat(
               {
                 id: request.messageId,
                 role: "assistant",
-                content: "",
+                parts: [],
                 createdAt: Date.now(),
                 modelName: request.modelName,
                 replyToId: request.userMessageId,
@@ -136,7 +152,14 @@ export function useAssistantChat(
       if (event.type === "chunk") {
         setResponseStatus("streaming")
         setAgentActivity(null)
-        appendToActiveMessage(event.content)
+        appendPartToActiveMessage({ type: "text", content: event.content })
+        return
+      }
+
+      if (event.type === "ui-block") {
+        setResponseStatus("streaming")
+        setAgentActivity(null)
+        appendPartToActiveMessage({ type: "ui", block: event.block })
         return
       }
 
@@ -164,7 +187,7 @@ export function useAssistantChat(
             {
               id: request.messageId,
               role: "assistant",
-              content: "",
+              parts: [],
               createdAt: Date.now(),
               modelName: request.modelName,
               error: event.message,
@@ -195,7 +218,7 @@ export function useAssistantChat(
       removeMessageListener()
       cancelActiveRequest()
     }
-  }, [appendToActiveMessage, cancelActiveRequest])
+  }, [appendPartToActiveMessage, cancelActiveRequest])
 
   const messagesRef = useRef<ChatMessage[]>(messages)
   messagesRef.current = messages
@@ -208,7 +231,7 @@ export function useAssistantChat(
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
-        content,
+        parts: [{ type: "text", content }],
         createdAt: Date.now(),
       }
 
@@ -219,7 +242,7 @@ export function useAssistantChat(
           {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: "",
+            parts: [],
             createdAt: Date.now(),
             error: "No AI model is configured. Add a provider in Settings to continue.",
             replyToId: userMessage.id,
@@ -247,7 +270,7 @@ export function useAssistantChat(
         requestId,
         nextMessages
           .filter((message) => !message.error)
-          .map(({ role, content: messageContent }) => ({ role, content: messageContent })),
+          .map((message) => ({ role: message.role, content: getMessageText(message) })),
         activeContextTabId
           ? [activeContextTabId, ...additionalContextTabIds.filter((id) => id !== activeContextTabId)]
           : additionalContextTabIds,
@@ -288,7 +311,7 @@ export function useAssistantChat(
           {
             id: request.messageId,
             role: "assistant",
-            content: "",
+            parts: [],
             createdAt: Date.now(),
             responseDurationMs,
             modelName: request.modelName,
@@ -333,7 +356,7 @@ export function useAssistantChat(
       requestId,
       nextMessages
         .filter((message) => !message.error)
-        .map(({ role, content }) => ({ role, content })),
+        .map((message) => ({ role: message.role, content: getMessageText(message) })),
       activeContextTabId
         ? [activeContextTabId, ...additionalContextTabIds.filter((id) => id !== activeContextTabId)]
         : additionalContextTabIds,

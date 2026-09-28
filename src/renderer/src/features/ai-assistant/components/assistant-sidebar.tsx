@@ -14,14 +14,18 @@ const SIDEBAR_TRANSITION_DURATION = 200
 
 type AssistantSidebarProps = {
   width: number
+  isFullWidth: boolean
   onWidthChange: (width: number) => void
+  onFullWidthChange: (isFullWidth: boolean) => void
   onResizeStart: () => void
   onResizeEnd: () => void
 }
 
 export function AssistantSidebar({
   width,
+  isFullWidth,
   onWidthChange,
+  onFullWidthChange,
   onResizeStart,
   onResizeEnd,
 }: AssistantSidebarProps) {
@@ -99,7 +103,7 @@ export function AssistantSidebar({
 
     animationFrame = requestAnimationFrame(updateInset)
     return () => cancelAnimationFrame(animationFrame)
-  }, [isVisible])
+  }, [isVisible, isMobile, width])
 
   useEffect(() => {
     return window.electron.browser.onAssistantSidebarToggleRequested(toggleSidebar)
@@ -116,24 +120,32 @@ export function AssistantSidebar({
       className="top-11 h-[calc(100svh-2.75rem)]"
     >
       <SidebarContent className="overflow-hidden bg-white">
-        <AssistantChat isOpen={isVisible} onClose={toggleSidebar} />
+        <AssistantChat
+          isOpen={isVisible}
+          isFullWidth={isFullWidth}
+          canToggleFullWidth={!isMobile}
+          onClose={toggleSidebar}
+          onToggleFullWidth={() => onFullWidthChange(!isFullWidth)}
+        />
       </SidebarContent>
-      <div
-        role="separator"
-        aria-label="Resize assistant sidebar"
-        aria-orientation="vertical"
-        aria-valuemin={MIN_ASSISTANT_SIDEBAR_WIDTH}
-        aria-valuemax={getMaximumWidth()}
-        aria-valuenow={width}
-        tabIndex={0}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={finishResize}
-        onPointerCancel={finishResize}
-        onKeyDown={handleResizeKeyDown}
-        onDoubleClick={() => updateWidth(getMaximumWidth())}
-        className="absolute inset-y-0 left-0 z-30 hidden w-2 cursor-col-resize touch-none outline-none after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-sidebar-border hover:after:w-0.5 hover:after:bg-ring focus-visible:after:w-0.5 focus-visible:after:bg-ring md:block"
-      />
+      {!isFullWidth && (
+        <div
+          role="separator"
+          aria-label="Resize assistant sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={MIN_ASSISTANT_SIDEBAR_WIDTH}
+          aria-valuemax={getMaximumWidth()}
+          aria-valuenow={width}
+          tabIndex={0}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishResize}
+          onPointerCancel={finishResize}
+          onKeyDown={handleResizeKeyDown}
+          onDoubleClick={() => updateWidth(getMaximumWidth())}
+          className="absolute inset-y-0 left-0 z-30 hidden w-2 cursor-col-resize touch-none outline-none after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-sidebar-border hover:after:w-0.5 hover:after:bg-ring focus-visible:after:w-0.5 focus-visible:after:bg-ring md:block"
+        />
+      )}
     </Sidebar>
   )
 }

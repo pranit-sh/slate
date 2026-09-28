@@ -1,7 +1,9 @@
 import type {
   AiAgentActivity,
   AiChatMessage,
+  AiPageAccessStatus,
   AiProvider,
+  AiUiBlock,
   BrowserTab,
 } from "../../../../shared/electron-api"
 
@@ -20,14 +22,15 @@ export interface AiPageContent {
   text: string
   links: Array<{ text: string; url: string }>
   truncated: boolean
+  accessStatus: AiPageAccessStatus
 }
 
 export interface AiBrowserContext {
   getAgentTabs(): BrowserTab[]
   readActivePage(): Promise<AiPageContent>
   readPage(tabId: string): Promise<AiPageContent>
-  searchWeb(query: string, temporary?: boolean): BrowserTab
-  openAgentTab(url: string, active?: boolean, temporary?: boolean): BrowserTab
+  searchWeb(query: string): BrowserTab
+  openAgentTab(url: string, active?: boolean): BrowserTab
   activateAgentTab(tabId: string): BrowserTab
   navigateAgentTab(tabId: string, destination: string, signal?: AbortSignal): Promise<BrowserTab>
   findInPage(tabId: string, query: string, signal?: AbortSignal): Promise<number>
@@ -44,6 +47,7 @@ export interface AiCredentialsProvider {
 export interface AiAgentCallbacks {
   onActivity(activity: AiAgentActivity): void
   onChunk(chunk: string): void
+  onUiBlock(block: AiUiBlock): void
 }
 
 export type AiAgentRunner = (
