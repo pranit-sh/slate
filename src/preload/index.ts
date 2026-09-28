@@ -191,6 +191,8 @@ const electronApi: ElectronApi = {
       ipcRenderer.send(IPC_CHANNELS.setTabMicrophoneMuted, tabId, muted),
     setTabPickerVisible: (visible: boolean) =>
       ipcRenderer.send(IPC_CHANNELS.setTabPickerVisible, visible),
+    setAddressBarBounds: (bounds) =>
+      ipcRenderer.send(IPC_CHANNELS.setAddressBarBounds, bounds),
     setSiteSettingsVisible: (visible: boolean) =>
       ipcRenderer.send(IPC_CHANNELS.setSiteSettingsVisible, visible),
     setSiteSettingsSize: (width: number, height: number) =>

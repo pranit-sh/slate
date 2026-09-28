@@ -2,7 +2,11 @@ import { join } from "node:path"
 import { release } from "node:os"
 import { pathToFileURL } from "node:url"
 import { app, BrowserWindow, ipcMain, session, type DownloadItem, type WebContents } from "electron"
-import { IPC_CHANNELS, type NextUpRecommendation } from "../shared/electron-api"
+import {
+  IPC_CHANNELS,
+  type AddressBarBounds,
+  type NextUpRecommendation,
+} from "../shared/electron-api"
 import {
   BrowserTabs,
   GHOST_PARTITION,
@@ -412,6 +416,9 @@ app.whenReady().then(async () => {
   })
   ipcMain.on(IPC_CHANNELS.setTabPickerVisible, (event, visible: boolean) => {
     getTabs(event)?.setTabPickerVisible(visible)
+  })
+  ipcMain.on(IPC_CHANNELS.setAddressBarBounds, (event, bounds: AddressBarBounds) => {
+    getTabs(event)?.setAddressBarBounds(bounds)
   })
   ipcMain.on(IPC_CHANNELS.setSiteSettingsVisible, (event, visible: boolean) => {
     getTabs(event)?.setSiteSettingsVisible(visible)

@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react"
+import { useEffect, useRef, useState, type RefObject } from "react"
 import { BorderBeam } from "border-beam"
 import { Bookmark, ChartNoAxesGantt, Ghost, Mic, MicOff, PanelsTopLeft, Pin, Volume2, VolumeX } from "lucide-react"
 import type { AddressBarFeedback, BrowserTab } from "../../../../../shared/electron-api"
@@ -31,6 +31,7 @@ export function AddressTrigger({
   closeOmnibox,
   openOmnibox,
 }: AddressTriggerProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const [isSiteSettingsOpen, setIsSiteSettingsOpen] = useState(false)
   const [addressPlaceholder] = useState(() =>
     ADDRESS_PLACEHOLDERS[Math.floor(Math.random() * ADDRESS_PLACEHOLDERS.length)])
@@ -53,6 +54,25 @@ export function AddressTrigger({
   useEffect(() =>
     window.electron.browser.onSiteSettingsVisibilityChanged(setIsSiteSettingsOpen), [])
 
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const reportBounds = () => {
+      const { x, y, width, height } = container.getBoundingClientRect()
+      window.electron.browser.setAddressBarBounds({ x, y, width, height })
+    }
+    const resizeObserver = new ResizeObserver(reportBounds)
+    resizeObserver.observe(container)
+    window.addEventListener("resize", reportBounds)
+    reportBounds()
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener("resize", reportBounds)
+    }
+  }, [])
+
   function handleOpenOmnibox(): void {
     setIsSiteSettingsOpen(false)
     window.electron.browser.setSiteSettingsVisible(false)
@@ -67,7 +87,7 @@ export function AddressTrigger({
   }
 
   return (
-    <div className="no-drag relative flex min-w-0 items-center">
+    <div ref={containerRef} className="no-drag relative flex min-w-0 items-center">
       <BorderBeam active={false} className="min-w-0 flex-1" size="pulse-inner" theme="auto">
         <ButtonGroup
           className={`w-full min-w-0 rounded-lg border bg-accent/55 transition-[border-color,box-shadow] duration-150 ${displayedFeedback ? "border-foreground ring-1 ring-foreground" : ""}`}

@@ -54,6 +54,7 @@ export const IPC_CHANNELS = {
   setTabMuted: "browser:set-tab-muted",
   setTabMicrophoneMuted: "browser:set-tab-microphone-muted",
   setTabPickerVisible: "browser:set-tab-picker-visible",
+  setAddressBarBounds: "browser:set-address-bar-bounds",
   setSiteSettingsVisible: "browser:set-site-settings-visible",
   setSiteSettingsSize: "browser:set-site-settings-size",
   setContentRightInset: "browser:set-content-right-inset",
@@ -117,6 +118,13 @@ export interface BrowserTabsState {
   isActiveTabGhost: boolean
   isActiveTabLoading: boolean
   tabs: BrowserTab[]
+}
+
+export interface AddressBarBounds {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 export interface BrowserNavigationState {
@@ -345,6 +353,7 @@ export interface ElectronApi {
     setTabMuted: (tabId: string, muted: boolean) => void
     setTabMicrophoneMuted: (tabId: string, muted: boolean) => void
     setTabPickerVisible: (visible: boolean) => void
+    setAddressBarBounds: (bounds: AddressBarBounds) => void
     setSiteSettingsVisible: (visible: boolean) => void
     setSiteSettingsSize: (width: number, height: number) => void
     setContentRightInset: (width: number) => void

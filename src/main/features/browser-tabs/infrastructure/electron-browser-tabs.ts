@@ -8,6 +8,7 @@ import {
 import {
   BROWSER_CONTENT_CHANNELS,
   IPC_CHANNELS,
+  type AddressBarBounds,
   type AddressBarFeedback,
   type BrowserTab,
   type BrowserNavigationState,
@@ -115,6 +116,7 @@ export class BrowserTabs {
   private isSearchVisible = false
   private searchSuggestionCount = 0
   private pickerCommandCount = 0
+  private addressBarBounds: AddressBarBounds | null = null
   private internalPageTransitionId = 0
   private isVisitsAttached = false
   private isVisitsVisible = false
@@ -872,6 +874,26 @@ export class BrowserTabs {
     this.updatePickerVisibility()
   }
 
+  setAddressBarBounds(bounds: AddressBarBounds): void {
+    if (
+      !bounds
+      || !Number.isFinite(bounds.x)
+      || !Number.isFinite(bounds.y)
+      || !Number.isFinite(bounds.width)
+      || !Number.isFinite(bounds.height)
+      || bounds.width <= 0
+      || bounds.height <= 0
+    ) return
+    this.addressBarBounds = {
+      x: Math.round(bounds.x),
+      y: Math.round(bounds.y),
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    }
+    if (this.isPickerVisible) this.resizePicker()
+    if (this.isSiteSettingsVisible) this.resizeSiteSettings()
+  }
+
   setSiteSettingsVisible(visible: boolean): void {
     if (visible) {
       this.isPickerRequested = false
@@ -1216,7 +1238,13 @@ export class BrowserTabs {
 
   private resizePicker(): void {
     const [windowWidth, windowHeight] = this.window.getContentSize()
-    const centerColumnWidth = Math.min(640, Math.max(240, windowWidth - 408))
+    const fallbackWidth = Math.min(640, Math.max(240, windowWidth - 408))
+    const pickerBounds = this.addressBarBounds ?? {
+      x: Math.round((windowWidth - fallbackWidth) / 2),
+      y: 6,
+      width: fallbackWidth,
+      height: 32,
+    }
     const isCommandMode = this.pickerQuery.startsWith(">")
     const hasSearchGroup = !isCommandMode && this.isSearchVisible && Boolean(this.pickerQuery)
     const searchItemCount = this.searchSuggestionCount + (hasSearchGroup ? 1 : 0)
@@ -1231,9 +1259,9 @@ export class BrowserTabs {
     const contentHeight = 46 + searchGroupHeight + separatorHeight + tabsGroupHeight
     const height = Math.min(520, windowHeight - 12, Math.max(120, contentHeight))
     this.pickerView.setBounds({
-      x: Math.round((windowWidth - centerColumnWidth) / 2),
-      y: 6,
-      width: centerColumnWidth,
+      x: pickerBounds.x,
+      y: pickerBounds.y,
+      width: pickerBounds.width,
       height,
     })
   }
@@ -1241,7 +1269,9 @@ export class BrowserTabs {
   private resizeSiteSettings(): void {
     const [windowWidth] = this.window.getContentSize()
     const centerColumnWidth = Math.min(640, Math.max(240, windowWidth - 408))
-    const addressRight = (windowWidth + centerColumnWidth) / 2
+    const addressRight = this.addressBarBounds
+      ? this.addressBarBounds.x + this.addressBarBounds.width
+      : (windowWidth + centerColumnWidth) / 2
     this.siteSettingsView.setBounds({
       x: Math.round(addressRight - this.siteSettingsSize.width),
       y: this.toolbarHeight - 4,
