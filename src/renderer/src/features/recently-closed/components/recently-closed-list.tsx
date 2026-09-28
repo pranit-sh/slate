@@ -1,3 +1,4 @@
+import { type MouseEvent } from "react"
 import { ArrowUpRight, Clock3 } from "lucide-react"
 import { Favicon } from "../../../components/favicon"
 import { useRecentlyClosed } from "../hooks/use-recently-closed"
@@ -15,6 +16,10 @@ export function RecentlyClosedList() {
 
   if (pages.length === 0) return null
 
+  function handleReopen(event: MouseEvent<HTMLButtonElement>, page: Parameters<typeof reopen>[0]) {
+    reopen(page, !(event.metaKey || event.ctrlKey))
+  }
+
   return (
     <nav
       aria-label="Recently closed pages"
@@ -29,7 +34,7 @@ export function RecentlyClosedList() {
           <li key={page.id}>
             <button
               type="button"
-              onClick={() => reopen(page)}
+              onClick={(event) => handleReopen(event, page)}
               title={`Reopen ${page.title}`}
               className="group/page flex h-11 w-full min-w-0 items-center gap-2.5 px-2.5 text-left font-normal outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
             >

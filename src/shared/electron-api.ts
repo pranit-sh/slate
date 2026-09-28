@@ -77,7 +77,7 @@ export const IPC_CHANNELS = {
   recentlyClosedChanged: "browser:recently-closed-changed",
   nextUpRecommendationsChanged: "browser:next-up-recommendations-changed",
   navigationStateChanged: "browser:navigation-state-changed",
-  bookmarkFeedback: "browser:bookmark-feedback",
+  addressBarFeedback: "browser:address-bar-feedback",
 } as const
 
 export const BROWSER_CONTENT_CHANNELS = {
@@ -124,7 +124,12 @@ export interface BrowserNavigationState {
   canGoForward: boolean
 }
 
-export type BookmarkFeedback = "saved" | "removed"
+export type AddressBarFeedback =
+  | "bookmark-saved"
+  | "bookmark-removed"
+  | "site-pinned"
+  | "site-unpinned"
+  | "tab-opened-background"
 
 export type SearchEngine = "google" | "bing" | "duckduckgo" | "brave"
 
@@ -286,7 +291,7 @@ export interface ElectronApi {
   browser: {
     newTab: () => void
     newGhostTab: () => void
-    openUrl: (url: string) => void
+    openUrl: (url: string, active?: boolean) => void
     getTabs: () => Promise<BrowserTabsState>
     getNavigationState: () => Promise<BrowserNavigationState>
     getVisits: () => Promise<Visit[]>
@@ -303,7 +308,7 @@ export interface ElectronApi {
     createPinnedSite: (site: PinnedSiteInput) => Promise<PinnedSite>
     deletePinnedSite: (id: string) => Promise<void>
     getRecentlyClosed: () => Promise<RecentlyClosedPage[]>
-    reopenRecentlyClosed: (id: string) => void
+    reopenRecentlyClosed: (id: string, active?: boolean) => void
     getNextUpRecommendations: () => Promise<NextUpRecommendation[]>
     dismissNextUpRecommendation: (id: string) => Promise<void>
     getDownloads: () => Promise<DownloadRecord[]>
@@ -360,7 +365,7 @@ export interface ElectronApi {
     onRecentlyClosedChanged: (callback: (pages: RecentlyClosedPage[]) => void) => RemoveListener
     onNextUpRecommendationsChanged: (callback: (items: NextUpRecommendation[]) => void) => RemoveListener
     onNavigationStateChanged: (callback: (state: BrowserNavigationState) => void) => RemoveListener
-    onBookmarkFeedback: (callback: (feedback: BookmarkFeedback) => void) => RemoveListener
+    onAddressBarFeedback: (callback: (feedback: AddressBarFeedback) => void) => RemoveListener
     onTabPickerOpened: (callback: () => void) => RemoveListener
     onSiteSettingsOpened: (callback: () => void) => RemoveListener
     onTabPickerQueryChanged: (callback: (query: string) => void) => RemoveListener

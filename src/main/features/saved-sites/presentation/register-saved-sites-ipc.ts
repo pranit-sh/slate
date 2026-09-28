@@ -1,7 +1,7 @@
 import { ipcMain } from "electron"
 import {
   IPC_CHANNELS,
-  type BookmarkFeedback,
+  type AddressBarFeedback,
   type SavedSiteInput,
 } from "../../../../shared/electron-api"
 import type { SavedSitesService } from "../application/saved-sites-service"
@@ -9,7 +9,7 @@ import type { SavedSitesService } from "../application/saved-sites-service"
 interface RegisterSavedSitesIpcOptions {
   service: SavedSitesService
   openPage(event: Electron.IpcMainEvent): void
-  onChanged(event: Electron.IpcMainInvokeEvent, feedback: BookmarkFeedback): void
+  onChanged(event: Electron.IpcMainInvokeEvent, feedback: AddressBarFeedback): void
 }
 
 export function registerSavedSitesIpc({
@@ -20,7 +20,7 @@ export function registerSavedSitesIpc({
   ipcMain.handle(IPC_CHANNELS.getSavedSites, () => service.list())
   ipcMain.handle(IPC_CHANNELS.createSavedSite, async (event, site: SavedSiteInput) => {
     const savedSite = await service.create(site)
-    onChanged(event, "saved")
+    onChanged(event, "bookmark-saved")
     return savedSite
   })
   ipcMain.handle(IPC_CHANNELS.updateSavedSite, (_event, id: string, site: SavedSiteInput) =>
@@ -28,7 +28,7 @@ export function registerSavedSitesIpc({
   )
   ipcMain.handle(IPC_CHANNELS.deleteSavedSite, async (event, id: string) => {
     await service.delete(id)
-    onChanged(event, "removed")
+    onChanged(event, "bookmark-removed")
   })
   ipcMain.handle(IPC_CHANNELS.markSavedSiteOpened, (_event, id: string) =>
     service.markOpened(id),

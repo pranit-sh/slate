@@ -8,7 +8,7 @@ import {
 import {
   BROWSER_CONTENT_CHANNELS,
   IPC_CHANNELS,
-  type BookmarkFeedback,
+  type AddressBarFeedback,
   type BrowserTab,
   type BrowserNavigationState,
   type BrowserTabsState,
@@ -238,29 +238,32 @@ export class BrowserTabs {
     }
   }
 
-  createTab(url = HOME_URL, isGhost = false): string {
-    this.internalPageTransitionId += 1
+  createTab(url = HOME_URL, isGhost = false, active = true): string {
+    const shouldActivate = active || this.activeTabId === null
+    if (shouldActivate) this.internalPageTransitionId += 1
     const wasVisitsVisible = this.isVisitsVisible
     const wasSavedVisible = this.isSavedVisible
     const wasDownloadsVisible = this.isDownloadsVisible
     const wasSettingsVisible = this.isSettingsVisible
-    this.hideVisits()
-    this.hideSaved()
-    this.hideDownloads()
-    this.hideSettings()
+    if (shouldActivate) {
+      this.hideVisits()
+      this.hideSaved()
+      this.hideDownloads()
+      this.hideSettings()
+    }
     if (url === HOME_URL) {
       const existingBlankTab = [...this.tabs.values()].find(
         (tab) => !tab.url && tab.isGhost === isGhost,
       )
       if (existingBlankTab) {
-        if (existingBlankTab.id !== this.activeTabId) {
+        if (shouldActivate && existingBlankTab.id !== this.activeTabId) {
           this.activeTab?.view.setVisible(false)
           this.activeTabId = existingBlankTab.id
           existingBlankTab.view.setVisible(false)
           this.resize()
           this.sendUrl("")
           this.sendState()
-        } else if (wasVisitsVisible || wasSavedVisible || wasDownloadsVisible || wasSettingsVisible) {
+        } else if (shouldActivate && (wasVisitsVisible || wasSavedVisible || wasDownloadsVisible || wasSettingsVisible)) {
           existingBlankTab.view.setVisible(false)
           this.resize()
           this.sendUrl("")
@@ -282,7 +285,7 @@ export class BrowserTabs {
       },
     })
 
-    this.activeTab?.view.setVisible(false)
+    if (shouldActivate) this.activeTab?.view.setVisible(false)
     const tab: TabRecord = {
       id,
       title: "New Tab",
@@ -298,10 +301,10 @@ export class BrowserTabs {
       microphoneFrameIds: new Set(),
     }
     this.tabs.set(id, tab)
-    this.activeTabId = id
+    if (shouldActivate) this.activeTabId = id
     this.window.contentView.addChildView(view)
     this.registerShortcuts(view.webContents)
-    view.setVisible(url !== HOME_URL)
+    view.setVisible(shouldActivate && url !== HOME_URL)
     if (this.isPickerRequested) this.updatePickerVisibility()
 
     view.webContents.on("focus", () => {
@@ -372,10 +375,12 @@ export class BrowserTabs {
       return { action: "deny" }
     })
 
-    this.resize()
-    this.sendUrl(url)
+    if (shouldActivate) {
+      this.resize()
+      this.sendUrl(url)
+      this.sendNavigationState()
+    }
     this.sendState()
-    this.sendNavigationState()
     void view.webContents.loadURL(url)
     if (!tab.isGhost) this.persistSession()
     return id
@@ -497,9 +502,19 @@ export class BrowserTabs {
   }
 
   toggleActiveTabDevTools(): void {
-    const webContents = this.activeTab?.view.webContents
-    if (!webContents || webContents.isDestroyed()) return
     this.setTabPickerVisible(false)
+    const webContents = this.isVisitsVisible
+      ? this.visitsView.webContents
+      : this.isSavedVisible
+        ? this.savedView.webContents
+        : this.isDownloadsVisible
+          ? this.downloadsView.webContents
+          : this.isSettingsVisible
+            ? this.settingsView.webContents
+            : this.activeTab?.url
+              ? this.activeTab.view.webContents
+              : this.window.webContents
+    if (webContents.isDestroyed()) return
     webContents.toggleDevTools()
   }
 
@@ -626,10 +641,14 @@ export class BrowserTabs {
   }
 
   openAgentTab(value: string, active = true): BrowserTab {
-    const previousTabId = this.activeTabId
-    const tabId = this.createTab(normalizeHttpUrl(value))
-    if (!active && previousTabId && previousTabId !== tabId) this.activateTab(previousTabId)
+    const tabId = this.openTab(normalizeHttpUrl(value), active)
     return this.toPublicTab(this.requireTab(tabId))
+  }
+
+  openTab(url: string, active = true): string {
+    const tabId = this.createTab(url, false, active)
+    if (!active) this.sendAddressBarFeedback("tab-opened-background")
+    return tabId
   }
 
   searchWeb(query: string): BrowserTab {
@@ -707,7 +726,7 @@ export class BrowserTabs {
       throw new Error("Only regular web pages can be saved.")
     }
     await this.addBookmark({ title: tab.title, url: tab.url })
-    this.sendBookmarkFeedback("saved")
+    this.sendAddressBarFeedback("bookmark-saved")
     return this.toPublicTab(tab)
   }
 
@@ -1134,7 +1153,7 @@ export class BrowserTabs {
     if (!tab || tab.isGhost || !/^https?:\/\//i.test(tab.url)) return
 
     void this.addBookmark({ title: tab.title, url: tab.url })
-      .then(() => this.sendBookmarkFeedback("saved"))
+      .then(() => this.sendAddressBarFeedback("bookmark-saved"))
       .catch((error) => {
         console.error("Failed to bookmark active tab", error)
       })
@@ -1176,8 +1195,8 @@ export class BrowserTabs {
     this.sendToToolbar(IPC_CHANNELS.nextUpRecommendationsChanged, items)
   }
 
-  sendBookmarkFeedback(feedback: BookmarkFeedback): void {
-    this.sendToToolbar(IPC_CHANNELS.bookmarkFeedback, feedback)
+  sendAddressBarFeedback(feedback: AddressBarFeedback): void {
+    this.sendToToolbar(IPC_CHANNELS.addressBarFeedback, feedback)
   }
 
   private hideSettings(): void {
@@ -1250,8 +1269,9 @@ export class BrowserTabs {
 
   private get matchingTabCount(): number {
     if (this.pickerQuery.startsWith(">")) return 0
-    if (!this.isSearchVisible || !this.pickerQuery) return this.selectableTabs.length
-    return this.selectableTabs.filter((tab) =>
+    const otherTabs = this.selectableTabs.filter((tab) => tab.id !== this.activeTabId)
+    if (!this.isSearchVisible || !this.pickerQuery) return otherTabs.length
+    return otherTabs.filter((tab) =>
       `${tab.title} ${tab.url}`.toLocaleLowerCase().includes(this.pickerQuery),
     ).length
   }
@@ -1262,7 +1282,13 @@ export class BrowserTabs {
 
   private updateTabUrl(tab: TabRecord, url: string): void {
     tab.url = this.displayUrl(url)
-    if (tab.id === this.activeTabId && !tab.url) tab.view.setVisible(false)
+    if (tab.id === this.activeTabId) {
+      const isInternalPageVisible = this.isVisitsVisible
+        || this.isSavedVisible
+        || this.isDownloadsVisible
+        || this.isSettingsVisible
+      tab.view.setVisible(Boolean(tab.url) && !isInternalPageVisible)
+    }
     if (tab.id === this.activeTabId) this.sendUrl(url)
     this.sendState()
     if (!tab.isGhost) this.persistSession()

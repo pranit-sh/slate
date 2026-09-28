@@ -260,12 +260,12 @@ app.whenReady().then(async () => {
   ipcMain.on(IPC_CHANNELS.toggleAssistantSidebar, (event) => {
     getTabs(event)?.toggleAssistantSidebar()
   })
-  ipcMain.on(IPC_CHANNELS.openUrl, (event, value: unknown) => {
+  ipcMain.on(IPC_CHANNELS.openUrl, (event, value: unknown, active: unknown) => {
     if (typeof value !== "string" || value.length > 2_000) return
     try {
       const url = new URL(value)
       if (url.protocol === "http:" || url.protocol === "https:") {
-        getTabs(event)?.createTab(url.toString())
+        getTabs(event)?.openTab(url.toString(), active !== false)
       }
     } catch {
       return
@@ -292,15 +292,16 @@ app.whenReady().then(async () => {
   registerSavedSitesIpc({
     service: savedSites,
     openPage: (event) => getTabs(event)?.openSaved(),
-    onChanged: (event, feedback) => getTabs(event)?.sendBookmarkFeedback(feedback),
+    onChanged: (event, feedback) => getTabs(event)?.sendAddressBarFeedback(feedback),
   })
   registerPinnedSitesIpc({
     service: pinnedSitesService,
     onPinnedSitesChanged: sendPinnedSitesChanged,
+    onChanged: (event, feedback) => getTabs(event)?.sendAddressBarFeedback(feedback),
   })
   registerRecentlyClosedIpc({
     service: recentlyClosedService,
-    openPage: (event, url) => getTabs(event)?.createTab(url),
+    openPage: (event, url, active) => getTabs(event)?.openTab(url, active),
     onRecentlyClosedChanged: sendRecentlyClosedChanged,
   })
   registerNextUpIpc({

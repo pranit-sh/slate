@@ -13,6 +13,7 @@ import { SearchResults } from "./search-results"
 export function OmniboxSurface() {
   const omnibox = useOmnibox()
   const showSearch = !omnibox.isCommandMode && omnibox.isQueryEdited && Boolean(omnibox.query.trim())
+  const otherTabs = omnibox.tabs.filter((tab) => tab.id !== omnibox.activeTabId)
 
   return (
     <main className="h-screen overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg">
@@ -40,8 +41,8 @@ export function OmniboxSurface() {
           {showSearch && (
             <SearchResults query={omnibox.query} suggestions={omnibox.suggestions} />
           )}
-          {showSearch && omnibox.tabs.length > 0 && <CommandSeparator />}
-          <OpenTabResults activeTabId={omnibox.activeTabId} tabs={omnibox.tabs} />
+          {showSearch && otherTabs.length > 0 && <CommandSeparator />}
+          <OpenTabResults tabs={otherTabs} />
         </CommandList>
       </Command>
     </main>

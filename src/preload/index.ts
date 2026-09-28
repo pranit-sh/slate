@@ -3,7 +3,7 @@ import type {
   AiChatMessage,
   AiMessageEvent,
   AiSettings,
-  BookmarkFeedback,
+  AddressBarFeedback,
   BrowserNavigationState,
   BrowserSettings,
   BrowserTabsState,
@@ -105,7 +105,7 @@ const electronApi: ElectronApi = {
   browser: {
     newTab: () => ipcRenderer.send(IPC_CHANNELS.newTab),
     newGhostTab: () => ipcRenderer.send(IPC_CHANNELS.newGhostTab),
-    openUrl: (url: string) => ipcRenderer.send(IPC_CHANNELS.openUrl, url),
+    openUrl: (url: string, active = true) => ipcRenderer.send(IPC_CHANNELS.openUrl, url, active),
     getTabs: () => ipcRenderer.invoke(IPC_CHANNELS.getTabs),
     getNavigationState: () => ipcRenderer.invoke(IPC_CHANNELS.getNavigationState),
     getVisits: () => ipcRenderer.invoke(IPC_CHANNELS.getVisits),
@@ -133,7 +133,8 @@ const electronApi: ElectronApi = {
       ipcRenderer.invoke(IPC_CHANNELS.createPinnedSite, site),
     deletePinnedSite: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.deletePinnedSite, id),
     getRecentlyClosed: () => ipcRenderer.invoke(IPC_CHANNELS.getRecentlyClosed),
-    reopenRecentlyClosed: (id: string) => ipcRenderer.send(IPC_CHANNELS.reopenRecentlyClosed, id),
+    reopenRecentlyClosed: (id: string, active = true) =>
+      ipcRenderer.send(IPC_CHANNELS.reopenRecentlyClosed, id, active),
     getNextUpRecommendations: () => ipcRenderer.invoke(IPC_CHANNELS.getNextUpRecommendations),
     dismissNextUpRecommendation: (id: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.dismissNextUpRecommendation, id),
@@ -247,11 +248,11 @@ const electronApi: ElectronApi = {
       ipcRenderer.on(IPC_CHANNELS.navigationStateChanged, listener)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.navigationStateChanged, listener)
     },
-    onBookmarkFeedback: (callback: (feedback: BookmarkFeedback) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, feedback: BookmarkFeedback) =>
+    onAddressBarFeedback: (callback: (feedback: AddressBarFeedback) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, feedback: AddressBarFeedback) =>
         callback(feedback)
-      ipcRenderer.on(IPC_CHANNELS.bookmarkFeedback, listener)
-      return () => ipcRenderer.removeListener(IPC_CHANNELS.bookmarkFeedback, listener)
+      ipcRenderer.on(IPC_CHANNELS.addressBarFeedback, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.addressBarFeedback, listener)
     },
     onTabPickerOpened: (callback: () => void) => {
       const listener = () => callback()

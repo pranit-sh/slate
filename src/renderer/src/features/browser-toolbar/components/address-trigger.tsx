@@ -1,7 +1,7 @@
 import { useEffect, useState, type RefObject } from "react"
 import { BorderBeam } from "border-beam"
-import { Bookmark, ChartNoAxesGantt, Ghost, Mic, MicOff, Volume2, VolumeX } from "lucide-react"
-import type { BookmarkFeedback, BrowserTab } from "../../../../../shared/electron-api"
+import { Bookmark, ChartNoAxesGantt, Ghost, Mic, MicOff, PanelsTopLeft, Pin, Volume2, VolumeX } from "lucide-react"
+import type { AddressBarFeedback, BrowserTab } from "../../../../../shared/electron-api"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Favicon } from "@/components/favicon"
@@ -12,7 +12,7 @@ interface AddressTriggerProps {
   activeTab: BrowserTab | null
   address: string
   addressButtonRef: RefObject<HTMLButtonElement | null>
-  bookmarkFeedback: BookmarkFeedback | null
+  addressBarFeedback: AddressBarFeedback | null
   isGhostTab: boolean
   isLoading: boolean
   isOmniboxOpen: boolean
@@ -24,7 +24,7 @@ export function AddressTrigger({
   activeTab,
   address,
   addressButtonRef,
-  bookmarkFeedback,
+  addressBarFeedback,
   isGhostTab,
   isLoading,
   isOmniboxOpen,
@@ -36,12 +36,19 @@ export function AddressTrigger({
     ADDRESS_PLACEHOLDERS[Math.floor(Math.random() * ADDRESS_PLACEHOLDERS.length)])
   const isWebPage = /^https?:\/\//i.test(address)
   const placeholder = isGhostTab ? "Search in Ghost Tab" : addressPlaceholder
-  const feedbackLabel = bookmarkFeedback === "saved"
+  const feedbackLabel = addressBarFeedback === "bookmark-saved"
     ? "Bookmark saved"
-    : bookmarkFeedback === "removed"
+    : addressBarFeedback === "bookmark-removed"
       ? "Bookmark removed"
-      : null
-  const displayedFeedback = isOmniboxOpen || !isWebPage ? null : feedbackLabel
+      : addressBarFeedback === "site-pinned"
+        ? "Pinned to home"
+        : addressBarFeedback === "site-unpinned"
+          ? "Removed from home"
+          : addressBarFeedback === "tab-opened-background"
+            ? "Opened in background tab"
+            : null
+  const canDisplayFeedback = isWebPage || addressBarFeedback === "tab-opened-background"
+  const displayedFeedback = isOmniboxOpen || !canDisplayFeedback ? null : feedbackLabel
 
   useEffect(() =>
     window.electron.browser.onSiteSettingsVisibilityChanged(setIsSiteSettingsOpen), [])
@@ -62,7 +69,9 @@ export function AddressTrigger({
   return (
     <div className="no-drag relative flex min-w-0 items-center">
       <BorderBeam active={false} className="min-w-0 flex-1" size="pulse-inner" theme="auto">
-        <ButtonGroup className="w-full min-w-0 rounded-lg border bg-accent/55">
+        <ButtonGroup
+          className={`w-full min-w-0 rounded-lg border bg-accent/55 transition-[border-color,box-shadow] duration-150 ${displayedFeedback ? "border-foreground ring-1 ring-foreground" : ""}`}
+        >
           {(isGhostTab || isWebPage) && (
             <span
               className="relative flex size-8 shrink-0 items-center justify-center"
@@ -99,9 +108,17 @@ export function AddressTrigger({
               aria-atomic="true"
             >
               {displayedFeedback && (
-                <Bookmark
-                  className={`size-4 shrink-0 ${bookmarkFeedback === "saved" ? "fill-current" : ""}`}
-                />
+                addressBarFeedback?.startsWith("bookmark-") ? (
+                  <Bookmark
+                    className={`size-4 shrink-0 ${addressBarFeedback === "bookmark-saved" ? "fill-current" : ""}`}
+                  />
+                ) : addressBarFeedback?.startsWith("site-") ? (
+                  <Pin
+                    className={`size-4 shrink-0 ${addressBarFeedback === "site-pinned" ? "fill-current" : ""}`}
+                  />
+                ) : (
+                  <PanelsTopLeft className="size-4 shrink-0" />
+                )
               )}
               <span className="truncate">{displayedFeedback ?? (address || placeholder)}</span>
             </span>

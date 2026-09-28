@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type {
-  BookmarkFeedback,
+  AddressBarFeedback,
   BrowserNavigationState,
   BrowserTabsState,
 } from "../../../../../shared/electron-api"
@@ -19,10 +19,10 @@ export function useBrowserToolbar() {
     canGoBack: false,
     canGoForward: false,
   })
-  const [bookmarkFeedback, setBookmarkFeedback] = useState<BookmarkFeedback | null>(null)
+  const [addressBarFeedback, setAddressBarFeedback] = useState<AddressBarFeedback | null>(null)
   const [isOmniboxOpen, setIsOmniboxOpen] = useState(false)
   const addressButtonRef = useRef<HTMLButtonElement>(null)
-  const bookmarkFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const addressBarFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const removeFocusListener = window.electron.browser.onFocus(() => {
@@ -33,15 +33,15 @@ export function useBrowserToolbar() {
     const removeTabsListener = window.electron.browser.onTabsChanged(setTabsState)
     const removeNavigationStateListener =
       window.electron.browser.onNavigationStateChanged(setNavigationState)
-    const removeBookmarkFeedbackListener = window.electron.browser.onBookmarkFeedback(
+    const removeAddressBarFeedbackListener = window.electron.browser.onAddressBarFeedback(
       (feedback) => {
-        if (bookmarkFeedbackTimerRef.current) {
-          clearTimeout(bookmarkFeedbackTimerRef.current)
+        if (addressBarFeedbackTimerRef.current) {
+          clearTimeout(addressBarFeedbackTimerRef.current)
         }
-        setBookmarkFeedback(feedback)
-        bookmarkFeedbackTimerRef.current = setTimeout(() => {
-          setBookmarkFeedback(null)
-          bookmarkFeedbackTimerRef.current = null
+        setAddressBarFeedback(feedback)
+        addressBarFeedbackTimerRef.current = setTimeout(() => {
+          setAddressBarFeedback(null)
+          addressBarFeedbackTimerRef.current = null
         }, 1_500)
       },
     )
@@ -63,8 +63,8 @@ export function useBrowserToolbar() {
       removeUrlListener()
       removeTabsListener()
       removeNavigationStateListener()
-      removeBookmarkFeedbackListener()
-      if (bookmarkFeedbackTimerRef.current) clearTimeout(bookmarkFeedbackTimerRef.current)
+      removeAddressBarFeedbackListener()
+      if (addressBarFeedbackTimerRef.current) clearTimeout(addressBarFeedbackTimerRef.current)
     }
   }, [])
 
@@ -95,11 +95,11 @@ export function useBrowserToolbar() {
   }
 
   function openOmnibox(): void {
-    if (bookmarkFeedbackTimerRef.current) {
-      clearTimeout(bookmarkFeedbackTimerRef.current)
-      bookmarkFeedbackTimerRef.current = null
+    if (addressBarFeedbackTimerRef.current) {
+      clearTimeout(addressBarFeedbackTimerRef.current)
+      addressBarFeedbackTimerRef.current = null
     }
-    setBookmarkFeedback(null)
+    setAddressBarFeedback(null)
     window.electron.browser.setTabPickerQuery(address, false)
     setIsOmniboxOpen(true)
   }
@@ -109,7 +109,7 @@ export function useBrowserToolbar() {
     address,
     addressButtonRef,
     blurAddress,
-    bookmarkFeedback,
+    addressBarFeedback,
     canGoBack: navigationState.canGoBack,
     canGoForward: navigationState.canGoForward,
     closeOmnibox: () => setIsOmniboxOpen(false),

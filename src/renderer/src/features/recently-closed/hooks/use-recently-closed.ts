@@ -18,8 +18,8 @@ export function useRecentlyClosed() {
     }
   }, [])
 
-  function reopen(page: RecentlyClosedPage): void {
-    window.electron.browser.reopenRecentlyClosed(page.id)
+  function reopen(page: RecentlyClosedPage, active = true): void {
+    window.electron.browser.reopenRecentlyClosed(page.id, active)
   }
 
   return { pages, reopen }

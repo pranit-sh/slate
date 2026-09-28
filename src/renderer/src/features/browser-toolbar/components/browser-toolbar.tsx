@@ -38,7 +38,7 @@ export function BrowserToolbar() {
           activeTab={browser.activeTab}
           address={browser.address}
           addressButtonRef={browser.addressButtonRef}
-          bookmarkFeedback={browser.bookmarkFeedback}
+          addressBarFeedback={browser.addressBarFeedback}
           isGhostTab={browser.isGhostTab}
           isLoading={browser.isLoading}
           isOmniboxOpen={browser.isOmniboxOpen}

@@ -1,3 +1,4 @@
+import { type MouseEvent } from "react"
 import { Forward, X } from "lucide-react"
 import type { NextUpReason, NextUpRecommendation } from "../../../../../shared/electron-api"
 import { Favicon } from "../../../components/favicon"
@@ -14,7 +15,12 @@ export function NextUpRecommendations() {
 
   if (recommendations.length === 0) return null
 
-  function open(recommendation: NextUpRecommendation): void {
+  function open(event: MouseEvent<HTMLButtonElement>, recommendation: NextUpRecommendation): void {
+    if (event.metaKey || event.ctrlKey) {
+      window.electron.browser.openUrl(recommendation.url, false)
+      return
+    }
+
     window.electron.browser.navigate(recommendation.url)
   }
 
@@ -35,7 +41,7 @@ export function NextUpRecommendations() {
           >
             <button
               type="button"
-              onClick={() => open(recommendation)}
+              onClick={(event) => open(event, recommendation)}
               title={`Open ${recommendation.title}`}
               className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-2.5 text-left font-normal outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
             >

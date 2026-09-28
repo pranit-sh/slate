@@ -5,11 +5,10 @@ import { Favicon } from "@/components/favicon"
 import { groupOpenTabs } from "../lib/group-open-tabs"
 
 interface OpenTabResultsProps {
-  activeTabId: string | null
   tabs: BrowserTab[]
 }
 
-export function OpenTabResults({ activeTabId, tabs }: OpenTabResultsProps) {
+export function OpenTabResults({ tabs }: OpenTabResultsProps) {
   if (tabs.length === 0) return null
 
   return (
@@ -63,9 +62,6 @@ export function OpenTabResults({ activeTabId, tabs }: OpenTabResultsProps) {
                     ? <MicOff className="size-4" />
                     : <Mic className="size-4" />}
                 </span>
-              )}
-              {tab.id === activeTabId && (
-                <span className="shrink-0 text-xs text-muted-foreground">Current</span>
               )}
               <button
                 type="button"
