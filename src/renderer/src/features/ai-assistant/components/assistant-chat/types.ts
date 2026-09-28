@@ -1,4 +1,4 @@
-import type { AiAgentActivity } from "../../../../shared/electron-api"
+import type { AiAgentActivity } from "../../../../../../shared/electron-api"
 
 export type ChatMessage = {
   id: string

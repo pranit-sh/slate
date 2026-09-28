@@ -32,6 +32,9 @@ const SAVED_URL = "slate://bookmarks"
 const DOWNLOADS_URL = "slate://downloads"
 const SETTINGS_URL = "slate://settings"
 export const GHOST_PARTITION = "ghost"
+const DEV_TOOLS_WIDTH_RATIO = 0.35
+const MIN_DEV_TOOLS_WIDTH = 320
+const MAX_DEV_TOOLS_WIDTH = 560
 
 interface TabRecord extends BrowserTab {
   view: WebContentsView
@@ -131,6 +134,8 @@ export class BrowserTabs {
   private isSettingsVisible = false
   private settingsLoad: Promise<boolean> | null = null
   private contentRightInset = 0
+  private devToolsView: WebContentsView | null = null
+  private devToolsTarget: WebContents | null = null
 
   constructor(
     private readonly window: BrowserWindow,
@@ -517,7 +522,23 @@ export class BrowserTabs {
               ? this.activeTab.view.webContents
               : this.window.webContents
     if (webContents.isDestroyed()) return
-    webContents.toggleDevTools()
+    if (this.devToolsTarget === webContents && webContents.isDevToolsOpened()) {
+      webContents.closeDevTools()
+      return
+    }
+
+    this.closeDevTools()
+    const devToolsView = new WebContentsView()
+    this.devToolsView = devToolsView
+    this.devToolsTarget = webContents
+    this.window.contentView.addChildView(devToolsView)
+    this.registerShortcuts(devToolsView.webContents)
+    webContents.setDevToolsWebContents(devToolsView.webContents)
+    webContents.once("devtools-closed", () => {
+      if (this.devToolsTarget === webContents) this.closeDevTools(false)
+    })
+    this.resize()
+    webContents.openDevTools({ mode: "detach" })
   }
 
   setSearchEngine(searchEngine: SearchEngine): void {
@@ -742,6 +763,7 @@ export class BrowserTabs {
       url: tab.url,
       faviconUrl: tab.faviconUrl,
     })
+    this.sendAddressBarFeedback("site-pinned")
     return this.toPublicTab(tab)
   }
 
@@ -958,10 +980,11 @@ export class BrowserTabs {
   resize(): void {
     const activeView = this.activeTab?.view
     const [width, height] = this.window.getContentSize()
+    const devToolsWidth = this.getDevToolsWidth(width)
     const contentBounds = {
       x: 0,
       y: this.toolbarHeight,
-      width: Math.max(0, width - this.contentRightInset),
+      width: Math.max(0, width - this.contentRightInset - devToolsWidth),
       height: Math.max(0, height - this.toolbarHeight),
     }
     activeView?.setBounds(contentBounds)
@@ -969,6 +992,13 @@ export class BrowserTabs {
     if (this.isSavedVisible) this.savedView.setBounds(contentBounds)
     if (this.isDownloadsVisible) this.downloadsView.setBounds(contentBounds)
     if (this.isSettingsVisible) this.settingsView.setBounds(contentBounds)
+    this.devToolsView?.setBounds({
+      x: width - devToolsWidth,
+      y: this.toolbarHeight,
+      width: devToolsWidth,
+      height: Math.max(0, height - this.toolbarHeight),
+    })
+    this.sendToToolbar(IPC_CHANNELS.devToolsWidthChanged, devToolsWidth)
     if (this.isPickerVisible) this.resizePicker()
   }
 
@@ -1066,6 +1096,7 @@ export class BrowserTabs {
   }
 
   dispose(): void {
+    this.closeDevTools()
     if (!this.pickerView.webContents.isDestroyed()) this.pickerView.webContents.close()
     if (!this.siteSettingsView.webContents.isDestroyed()) this.siteSettingsView.webContents.close()
     if (!this.visitsView.webContents.isDestroyed()) this.visitsView.webContents.close()
@@ -1077,6 +1108,29 @@ export class BrowserTabs {
     }
     this.tabs.clear()
     this.activeTabId = null
+  }
+
+  private getDevToolsWidth(windowWidth: number): number {
+    if (!this.devToolsView) return 0
+    return Math.min(
+      MAX_DEV_TOOLS_WIDTH,
+      Math.max(MIN_DEV_TOOLS_WIDTH, Math.round(windowWidth * DEV_TOOLS_WIDTH_RATIO)),
+    )
+  }
+
+  private closeDevTools(closeTarget = true): void {
+    const target = this.devToolsTarget
+    const view = this.devToolsView
+    this.devToolsTarget = null
+    this.devToolsView = null
+    if (closeTarget && target && !target.isDestroyed() && target.isDevToolsOpened()) {
+      target.closeDevTools()
+    }
+    if (view) {
+      this.window.contentView.removeChildView(view)
+      if (!view.webContents.isDestroyed()) view.webContents.close()
+    }
+    this.resize()
   }
 
   private get activeTab(): TabRecord | undefined {

@@ -1,6 +1,6 @@
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef } from "react"
 
-import { AssistantChat } from "@/components/assistant-chat"
+import { AssistantChat } from "./assistant-chat"
 import {
   Sidebar,
   SidebarContent,

@@ -4,7 +4,7 @@ import type {
   AiAgentActivity,
   AiModel,
   AiSettings,
-} from "../../../../shared/electron-api"
+} from "../../../../../../shared/electron-api"
 import type { ChatMessage, ResponseStatus } from "./types"
 
 const EMPTY_AI_SETTINGS: AiSettings = { activeModelId: null, models: [] }

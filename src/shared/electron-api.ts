@@ -49,6 +49,7 @@ export const IPC_CHANNELS = {
   toggleAssistantSidebar: "browser:toggle-assistant-sidebar",
   assistantSidebarToggleRequested: "browser:assistant-sidebar-toggle-requested",
   toggleActiveTabDevTools: "browser:toggle-active-tab-dev-tools",
+  devToolsWidthChanged: "browser:dev-tools-width-changed",
   activateTab: "browser:activate-tab",
   closeTab: "browser:close-tab",
   setTabMuted: "browser:set-tab-muted",
@@ -296,6 +297,21 @@ export interface ElectronApi {
   support: {
     reportBug: () => Promise<void>
   }
+  ai: {
+    getSettings: () => Promise<AiSettings>
+    saveModel: (model: SaveAiModelInput) => Promise<AiSettings>
+    deleteModel: (id: string) => Promise<AiSettings>
+    setActiveModel: (id: string) => Promise<AiSettings>
+    testModelConnection: (id: string) => Promise<AiConnectionStatus>
+    startMessage: (
+      requestId: string,
+      messages: AiChatMessage[],
+      contextTabIds: string[],
+    ) => void
+    cancelMessage: (requestId: string) => void
+    onMessageEvent: (callback: (event: AiMessageEvent) => void) => RemoveListener
+    onSettingsChanged: (callback: (settings: AiSettings) => void) => RemoveListener
+  }
   browser: {
     newTab: () => void
     newGhostTab: () => void
@@ -328,19 +344,6 @@ export interface ElectronApi {
     clearDownloads: () => Promise<void>
     getSettings: () => Promise<BrowserSettings>
     updateSettings: (settings: BrowserSettings) => Promise<BrowserSettings>
-    getAiSettings: () => Promise<AiSettings>
-    saveAiModel: (model: SaveAiModelInput) => Promise<AiSettings>
-    deleteAiModel: (id: string) => Promise<AiSettings>
-    setActiveAiModel: (id: string) => Promise<AiSettings>
-    testAiModelConnection: (id: string) => Promise<AiConnectionStatus>
-    startAiMessage: (
-      requestId: string,
-      messages: AiChatMessage[],
-      contextTabIds: string[],
-    ) => void
-    cancelAiMessage: (requestId: string) => void
-    onAiMessageEvent: (callback: (event: AiMessageEvent) => void) => RemoveListener
-    onAiSettingsChanged: (callback: (settings: AiSettings) => void) => RemoveListener
     getSearchSuggestions: (query: string) => Promise<SearchSuggestion[]>
     openVisits: () => void
     openSaved: () => void
@@ -370,6 +373,7 @@ export interface ElectronApi {
     onTabsChanged: (callback: (state: BrowserTabsState) => void) => RemoveListener
     onDownloadsChanged: (callback: (downloads: DownloadRecord[]) => void) => RemoveListener
     onAssistantSidebarToggleRequested: (callback: () => void) => RemoveListener
+    onDevToolsWidthChanged: (callback: (width: number) => void) => RemoveListener
     onPinnedSitesChanged: (callback: (sites: PinnedSite[]) => void) => RemoveListener
     onRecentlyClosedChanged: (callback: (pages: RecentlyClosedPage[]) => void) => RemoveListener
     onNextUpRecommendationsChanged: (callback: (items: NextUpRecommendation[]) => void) => RemoveListener

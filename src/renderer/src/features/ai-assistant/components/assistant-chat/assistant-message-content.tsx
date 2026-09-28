@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import type { BrowserTab } from "../../../../shared/electron-api"
+import type { BrowserTab } from "../../../../../../shared/electron-api"
 import { Favicon } from "@/components/favicon"
 
 interface AssistantMessageContentProps {

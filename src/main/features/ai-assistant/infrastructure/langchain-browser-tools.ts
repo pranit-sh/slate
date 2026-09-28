@@ -1,10 +1,10 @@
 import { tool } from "@langchain/core/tools"
 import { z } from "zod"
-import type { AiAgentActivity } from "../shared/electron-api"
-import type { BrowserTabs } from "./features/browser-tabs"
+import type { AiAgentActivity } from "../../../../shared/electron-api"
+import type { AiBrowserContext } from "../application/ai-assistant-ports"
 
 interface BrowserToolOptions {
-  browserTabs: BrowserTabs
+  browserContext: AiBrowserContext
   onActivity: (activity: AiAgentActivity) => void
   signal?: AbortSignal
 }
@@ -12,7 +12,7 @@ interface BrowserToolOptions {
 type ActivityDetails = Omit<AiAgentActivity, "id" | "status">
 
 export function createBrowserTools({
-  browserTabs,
+  browserContext,
   onActivity,
   signal,
 }: BrowserToolOptions) {
@@ -53,7 +53,7 @@ export function createBrowserTools({
     async () => {
       const page = await runWithActivity(
         { state: "reading", label: "Reading current page" },
-        () => browserTabs.readActivePage(),
+        () => browserContext.readActivePage(),
         (result) => ({
           state: "reading",
           label: "Read page",
@@ -74,7 +74,7 @@ export function createBrowserTools({
     async () => {
       const tabs = await runWithActivity(
         { state: "reading", label: "Checking open tabs" },
-        () => browserTabs.getAgentTabs(),
+        () => browserContext.getAgentTabs(),
         (result) => ({
           state: "reading",
           label: `Checked ${result.length} open tab${result.length === 1 ? "" : "s"}`,
@@ -97,7 +97,7 @@ export function createBrowserTools({
           label: `Searching for ${query}`,
           detail: query,
         },
-        () => browserTabs.searchWeb(query),
+        () => browserContext.searchWeb(query),
         (result) => ({
           state: "searching",
           label: "Opened search results",
@@ -118,7 +118,7 @@ export function createBrowserTools({
     async ({ url, active }) => {
       const tab = await runWithActivity(
         { state: "opening", label: "Opening tab", detail: url },
-        () => browserTabs.openAgentTab(url, active),
+        () => browserContext.openAgentTab(url, active),
         (result) => ({
           state: "opening",
           label: "Opened tab",
@@ -146,7 +146,7 @@ export function createBrowserTools({
           label: "Switching tab",
           affectedTabIds: [tabId],
         },
-        () => browserTabs.activateAgentTab(tabId),
+        () => browserContext.activateAgentTab(tabId),
         (result) => ({
           state: "navigating",
           label: "Switched tab",
@@ -171,7 +171,7 @@ export function createBrowserTools({
           label: "Reading page",
           affectedTabIds: [tabId],
         },
-        () => browserTabs.readPage(tabId),
+        () => browserContext.readPage(tabId),
         (result) => ({
           state: "reading",
           label: "Read page",
@@ -197,7 +197,7 @@ export function createBrowserTools({
           detail: query,
           affectedTabIds: [tabId],
         },
-        () => browserTabs.findInPage(tabId, query, signal),
+        () => browserContext.findInPage(tabId, query, signal),
         (result) => ({
           state: "finding",
           label: `Found ${result} match${result === 1 ? "" : "es"}`,
@@ -228,7 +228,7 @@ export function createBrowserTools({
           detail: destination,
           affectedTabIds: [tabId],
         },
-        () => browserTabs.navigateAgentTab(tabId, destination, signal),
+        () => browserContext.navigateAgentTab(tabId, destination, signal),
         (result) => ({
           state: "navigating",
           label: "Navigation complete",
@@ -257,9 +257,9 @@ export function createBrowserTools({
           affectedTabIds: [tabId],
         },
         () => {
-          const tab = browserTabs.getAgentTabs().find((candidate) => candidate.id === tabId)
+          const tab = browserContext.getAgentTabs().find((candidate) => candidate.id === tabId)
           if (!tab) throw new Error("Tab not found.")
-          return browserTabs.closeAgentTab(tabId)
+          return browserContext.closeAgentTab(tabId)
         },
         (result) => ({
           state: "organizing",
@@ -286,9 +286,9 @@ export function createBrowserTools({
           affectedTabIds: [tabId],
         },
         async () => {
-          const tab = browserTabs.getAgentTabs().find((candidate) => candidate.id === tabId)
+          const tab = browserContext.getAgentTabs().find((candidate) => candidate.id === tabId)
           if (!tab) throw new Error("Tab not found.")
-          return browserTabs.saveAgentTab(tabId)
+          return browserContext.saveAgentTab(tabId)
         },
         (result) => ({
           state: "organizing",
@@ -315,9 +315,9 @@ export function createBrowserTools({
           affectedTabIds: [tabId],
         },
         async () => {
-          const tab = browserTabs.getAgentTabs().find((candidate) => candidate.id === tabId)
+          const tab = browserContext.getAgentTabs().find((candidate) => candidate.id === tabId)
           if (!tab) throw new Error("Tab not found.")
-          return browserTabs.pinAgentTab(tabId)
+          return browserContext.pinAgentTab(tabId)
         },
         (result) => ({
           state: "organizing",
@@ -345,9 +345,9 @@ export function createBrowserTools({
           affectedTabIds: [tabId],
         },
         () => {
-          const tab = browserTabs.getAgentTabs().find((candidate) => candidate.id === tabId)
+          const tab = browserContext.getAgentTabs().find((candidate) => candidate.id === tabId)
           if (!tab) throw new Error("Tab not found.")
-          return browserTabs.downloadFromTab(tabId, url)
+          return browserContext.downloadFromTab(tabId, url)
         },
         () => ({
           state: "opening",

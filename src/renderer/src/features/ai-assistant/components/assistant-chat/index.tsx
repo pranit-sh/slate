@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { ChatComposer } from "./chat-composer"
 import { ChatMessageList } from "./chat-message-list"
 import { useAssistantChat } from "./use-assistant-chat"
-import type { BrowserTab } from "../../../../shared/electron-api"
+import type { BrowserTab } from "../../../../../../shared/electron-api"
 
 interface AssistantChatProps {
   isOpen: boolean

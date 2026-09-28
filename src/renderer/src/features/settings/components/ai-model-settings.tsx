@@ -133,13 +133,13 @@ export function AiModelSettings() {
 
   function checkConnection(id: string): void {
     setConnectionStatuses((current) => ({ ...current, [id]: { state: "checking" } }))
-    void window.electron.browser.testAiModelConnection(id).then((status) => {
+    void window.electron.ai.testModelConnection(id).then((status) => {
       setConnectionStatuses((current) => ({ ...current, [id]: status }))
     })
   }
 
   useEffect(() => {
-    void window.electron.browser.getAiSettings().then((storedAiSettings) => {
+    void window.electron.ai.getSettings().then((storedAiSettings) => {
       setAiSettings(storedAiSettings)
       for (const model of storedAiSettings.models) checkConnection(model.id)
     })
@@ -169,7 +169,7 @@ export function AiModelSettings() {
     setIsSavingModel(true)
     setModelError("")
     try {
-      const nextSettings = await window.electron.browser.saveAiModel({
+      const nextSettings = await window.electron.ai.saveModel({
         ...modelForm,
         apiKey: modelForm.apiKey || undefined,
       })
@@ -270,7 +270,7 @@ export function AiModelSettings() {
                         <AlertDialogAction
                           className="font-normal"
                           onClick={() => {
-                            void window.electron.browser.deleteAiModel(model.id).then(setAiSettings)
+                            void window.electron.ai.deleteModel(model.id).then(setAiSettings)
                           }}
                         >
                           Delete
@@ -303,7 +303,7 @@ export function AiModelSettings() {
                   id="model-name"
                   value={modelForm.name}
                   onChange={(event) => setModelForm({ ...modelForm, name: event.target.value })}
-                  placeholder="Work assistant"
+                  placeholder="Model name"
                   autoFocus
                   required
                 />

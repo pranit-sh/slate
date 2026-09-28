@@ -25,7 +25,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import type { AiModel, BrowserTab } from "../../../../shared/electron-api"
+import type { AiModel, BrowserTab } from "../../../../../../shared/electron-api"
 import { CHAT_PLACEHOLDERS } from "./content"
 
 const PROVIDER_FAVICON_URLS: Record<AiModel["provider"], string> = {

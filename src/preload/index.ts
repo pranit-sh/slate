@@ -102,6 +102,33 @@ const electronApi: ElectronApi = {
   support: {
     reportBug: () => ipcRenderer.invoke(IPC_CHANNELS.reportBug),
   },
+  ai: {
+    getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getAiSettings),
+    saveModel: (model: SaveAiModelInput) =>
+      ipcRenderer.invoke(IPC_CHANNELS.saveAiModel, model),
+    deleteModel: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.deleteAiModel, id),
+    setActiveModel: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.setActiveAiModel, id),
+    testModelConnection: (id: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.testAiModelConnection, id),
+    startMessage: (
+      requestId: string,
+      messages: AiChatMessage[],
+      contextTabIds: string[],
+    ) => ipcRenderer.send(IPC_CHANNELS.startAiMessage, requestId, messages, contextTabIds),
+    cancelMessage: (requestId: string) =>
+      ipcRenderer.send(IPC_CHANNELS.cancelAiMessage, requestId),
+    onMessageEvent: (callback: (event: AiMessageEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, messageEvent: AiMessageEvent) =>
+        callback(messageEvent)
+      ipcRenderer.on(IPC_CHANNELS.aiMessageEvent, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiMessageEvent, listener)
+    },
+    onSettingsChanged: (callback: (settings: AiSettings) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, settings: AiSettings) => callback(settings)
+      ipcRenderer.on(IPC_CHANNELS.aiSettingsChanged, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiSettingsChanged, listener)
+    },
+  },
   browser: {
     newTab: () => ipcRenderer.send(IPC_CHANNELS.newTab),
     newGhostTab: () => ipcRenderer.send(IPC_CHANNELS.newGhostTab),
@@ -149,32 +176,6 @@ const electronApi: ElectronApi = {
     getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),
     updateSettings: (settings: BrowserSettings) =>
       ipcRenderer.invoke(IPC_CHANNELS.updateSettings, settings),
-    getAiSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getAiSettings),
-    saveAiModel: (model: SaveAiModelInput) =>
-      ipcRenderer.invoke(IPC_CHANNELS.saveAiModel, model),
-    deleteAiModel: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.deleteAiModel, id),
-    setActiveAiModel: (id: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.setActiveAiModel, id),
-    testAiModelConnection: (id: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.testAiModelConnection, id),
-    startAiMessage: (
-      requestId: string,
-      messages: AiChatMessage[],
-      contextTabIds: string[],
-    ) => ipcRenderer.send(IPC_CHANNELS.startAiMessage, requestId, messages, contextTabIds),
-    cancelAiMessage: (requestId: string) =>
-      ipcRenderer.send(IPC_CHANNELS.cancelAiMessage, requestId),
-    onAiMessageEvent: (callback: (event: AiMessageEvent) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, messageEvent: AiMessageEvent) =>
-        callback(messageEvent)
-      ipcRenderer.on(IPC_CHANNELS.aiMessageEvent, listener)
-      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiMessageEvent, listener)
-    },
-    onAiSettingsChanged: (callback: (settings: AiSettings) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, settings: AiSettings) => callback(settings)
-      ipcRenderer.on(IPC_CHANNELS.aiSettingsChanged, listener)
-      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiSettingsChanged, listener)
-    },
     getSearchSuggestions: (query: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.getSearchSuggestions, query),
     openVisits: () => ipcRenderer.send(IPC_CHANNELS.openVisits),
@@ -228,6 +229,11 @@ const electronApi: ElectronApi = {
     onAssistantSidebarToggleRequested: (callback: () => void) => {
       ipcRenderer.on(IPC_CHANNELS.assistantSidebarToggleRequested, callback)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.assistantSidebarToggleRequested, callback)
+    },
+    onDevToolsWidthChanged: (callback: (width: number) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, width: number) => callback(width)
+      ipcRenderer.on(IPC_CHANNELS.devToolsWidthChanged, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.devToolsWidthChanged, listener)
     },
     onPinnedSitesChanged: (callback: (sites: PinnedSite[]) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, sites: PinnedSite[]) => callback(sites)

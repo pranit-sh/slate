@@ -57,19 +57,21 @@ import {
   AiModelService,
   EncryptedAiModelRepository,
   registerAiModelIpc,
+  testAiConnection,
 } from "./features/ai-models"
+import {
+  AiAssistantService,
+  registerAiAssistantIpc,
+  runAiAgent,
+} from "./features/ai-assistant"
 import {
   BugReportService,
   ElectronExternalUrlOpener,
   registerBugReportIpc,
 } from "./features/bug-reporting"
-import { testAiConnection } from "./ai-client"
-import { runAiAgent } from "./ai-agent"
-import type { AiChatMessage, AiMessageEvent } from "../shared/electron-api"
 
 const TOOLBAR_HEIGHT = 44
 const tabsByWindow = new Map<number, BrowserTabs>()
-const aiRequests = new Map<string, AbortController>()
 let visitHistory: VisitHistoryService
 let browserSettings: BrowserSettingsService
 let tabSession: TabSessionRepository
@@ -323,79 +325,15 @@ app.whenReady().then(async () => {
     openPage: (event) => getTabs(event)?.openSettings(),
   })
   registerAiModelIpc(aiModels)
+  registerAiAssistantIpc({
+    service: new AiAssistantService(aiModels, runAiAgent),
+    getBrowserContext: getTabs,
+  })
   registerBugReportIpc(new BugReportService({
     appVersion: app.getVersion(),
     operatingSystem: `${process.platform} ${release()}`,
     externalUrlOpener: new ElectronExternalUrlOpener(),
   }))
-  ipcMain.on(IPC_CHANNELS.startAiMessage, (
-    event,
-    requestId: string,
-    messages: AiChatMessage[],
-    contextTabIds: string[],
-  ) => {
-    if (typeof requestId !== "string" || requestId.length > 100) return
-    if (
-      !Array.isArray(contextTabIds)
-      || contextTabIds.length > 100
-      || contextTabIds.some((tabId) => typeof tabId !== "string" || tabId.length > 100)
-    ) return
-    const requestKey = `${event.sender.id}:${requestId}`
-    aiRequests.get(requestKey)?.abort()
-    const controller = new AbortController()
-    aiRequests.set(requestKey, controller)
-
-    const sendEvent = (messageEvent: AiMessageEvent): void => {
-      if (!event.sender.isDestroyed()) {
-        event.sender.send(IPC_CHANNELS.aiMessageEvent, messageEvent)
-      }
-    }
-
-    void (async () => {
-      try {
-        if (!Array.isArray(messages) || messages.length > 40) {
-          throw new Error("The conversation is too long.")
-        }
-        const tabs = getTabs(event)
-        if (!tabs) throw new Error("The browser context is unavailable.")
-        const credentials = await aiModels.getActiveCredentials()
-        await runAiAgent(
-          credentials,
-          messages,
-          tabs,
-          contextTabIds,
-          {
-            onActivity: (activity) => {
-              if (!controller.signal.aborted) {
-                sendEvent({ requestId, type: "activity", activity })
-              }
-            },
-            onChunk: (content) => {
-              if (content && !controller.signal.aborted) {
-                sendEvent({ requestId, type: "chunk", content })
-              }
-            },
-          },
-          controller.signal,
-        )
-        if (!controller.signal.aborted) sendEvent({ requestId, type: "done" })
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          sendEvent({
-            requestId,
-            type: "error",
-            message: error instanceof Error ? error.message : "The AI request failed.",
-          })
-        }
-      } finally {
-        if (aiRequests.get(requestKey) === controller) aiRequests.delete(requestKey)
-      }
-    })()
-  })
-  ipcMain.on(IPC_CHANNELS.cancelAiMessage, (event, requestId: string) => {
-    if (typeof requestId !== "string") return
-    aiRequests.get(`${event.sender.id}:${requestId}`)?.abort()
-  })
   registerSearchSuggestionIpc({
     service: searchSuggestionService,
     getContext: getTabs,

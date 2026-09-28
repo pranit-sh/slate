@@ -42,7 +42,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
-import type { AiAgentActivity, BrowserTab } from "../../../../shared/electron-api"
+import type { AiAgentActivity, BrowserTab } from "../../../../../../shared/electron-api"
 import { AssistantMessageContent } from "./assistant-message-content"
 import { QUICK_PROMPTS } from "./content"
 import type { ChatMessage, ResponseStatus } from "./types"
